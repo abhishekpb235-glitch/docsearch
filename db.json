@@ -187,6 +187,28 @@
       "profilePic": null,
       "clinic": null,
       "schedule": []
+    },
+    {
+      "id": "doc_647c361984",
+      "name": "chandran",
+      "email": "chandran@gmail.com",
+      "passwordHash": "$2a$10$DZ3cfaMOXgU8QBOVb8KHX.BFHYS00JEoS3fgjE2.lfGkaSsSeS5qu",
+      "department": "General Physician",
+      "bio": "",
+      "experienceYears": 5,
+      "isAvailable": true,
+      "status": "approved",
+      "maxDailyAppointments": 20,
+      "city": "Cherai",
+      "lat": 10.1402,
+      "lng": 76.2003,
+      "profilePic": null,
+      "clinic": {
+        "name": "chandranS",
+        "address": "chirayi",
+        "phone": "1245235685"
+      },
+      "schedule": []
     }
   ],
   "appointments": [
