@@ -1,0 +1,2006 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<meta name="color-scheme" content="light dark" />
+<title>DocSearch — Find & book doctors near you</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ccircle cx='50' cy='50' r='46' fill='%232F6F4E'/%3E%3Cpath d='M50 26v48M26 50h48' stroke='%23fff' stroke-width='9' stroke-linecap='round'/%3E%3C/svg%3E">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,400;0,9..144,560;0,9..144,650;1,9..144,500&family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+
+<style>
+/* ============================================================================
+   DOCSEARCH — DESIGN SYSTEM
+   A clinic-finder app. The palette borrows from field-guide botanicals and
+   clinical signage rather than the usual SaaS blue: deep pine ink, warm
+   paper, forest-green for primary action, a burnt-ochre for tokens/alerts.
+   Table of contents:
+     0.  Fonts fallback stack & reset
+     1.  Design tokens (light + dark)
+     2.  Base typography
+     3.  Layout shell: topbar, sidebar, map
+     4.  Buttons
+     5.  Form controls
+     6.  Chips, badges, tags, pills
+     7.  Cards (result cards, info boxes)
+     8.  Tabs
+     9.  Modal + full-screen panel
+     10. Ticket (appointment token)
+     11. Toast notifications
+     12. Skeletons & empty states
+     13. Avatars
+     14. Scrollbars
+     15. Motion & accessibility
+     16. Responsive breakpoints
+     17. Print (ticket)
+   ============================================================================ */
+
+/* ---------- BROWSER SUPPORT NOTES ----------
+   Built against current evergreen browsers (Chrome/Edge/Firefox/Safari, last ~2
+   major versions). Two CSS features used below degrade gracefully rather than
+   breaking on older engines:
+     - color-mix() (screen-head's translucent backdrop) falls back to the plain
+       --paper color on browsers that don't support it yet.
+     - :focus-visible is widely supported, but any browser that lacks it simply
+       never shows the custom focus ring — native outlines still apply.
+   Nothing here depends on a bundler, a CSS preprocessor, or a build step; the
+   whole app is this one file, openable straight from disk. */
+
+/* ---------- 0. RESET ---------- */
+*, *::before, *::after { box-sizing: border-box; }
+html, body { height: 100%; }
+body {
+  margin: 0;
+  font-family: var(--font-body);
+  color: var(--ink);
+  background: var(--paper);
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+  overflow: hidden;
+}
+h1, h2, h3, h4, p, ul, figure { margin: 0; }
+ul { padding: 0; list-style: none; }
+img { max-width: 100%; display: block; }
+button { font: inherit; }
+a { color: inherit; }
+::selection { background: var(--accent-soft); color: var(--accent-dark); }
+
+/* ---------- 1. DESIGN TOKENS ---------- */
+:root {
+  --paper: #EEF1EC;
+  --surface: #FFFFFF;
+  --surface-2: #F6F7F3;
+  --surface-3: #ECEFE8;
+  --ink: #16251D;
+  --ink-soft: #4C5B50;
+  --ink-faint: #8B9A8C;
+  --line: #DEE4D7;
+  --line-strong: #C7D0BD;
+
+  --accent: #2F6F4E;
+  --accent-dark: #020a06;
+  --accent-ink: #FBFBF7;
+  --accent-soft: #E2EEE4;
+  --accent-soft-strong: #CEE1D2;
+
+  --warn: #B8601F;
+  --warn-dark: #8C4A17;
+  --warn-soft: #F6E8D4;
+
+  --danger: #B3432B;
+  --danger-soft: #FAE8E2;
+  --ok: #2F6F4E;
+  --ok-soft: #E2EEE4;
+
+  --radius-xs: 6px;
+  --radius-sm: 10px;
+  --radius-md: 16px;
+  --radius-lg: 24px;
+  --radius-pill: 999px;
+
+  --shadow-xs: 0 1px 2px rgba(18, 31, 23, .07);
+  --shadow-sm: 0 3px 10px rgba(18, 31, 23, .08);
+  --shadow-md: 0 10px 30px rgba(18, 31, 23, .14);
+  --shadow-lg: 0 28px 70px rgba(18, 31, 23, .24);
+
+  --font-display: "Fraunces", Georgia, "Times New Roman", serif;
+  --font-body: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+
+  --ease-out: cubic-bezier(.19, 1, .22, 1);
+  --ease-spring: cubic-bezier(.34, 1.56, .64, 1);
+
+  --sidebar-w: 392px;
+  --topbar-h: 68px;
+
+  color-scheme: light;
+}
+
+[data-theme="dark"] {
+  --paper: #10211A;
+  --surface: #16281F;
+  --surface-2: #1C3327;
+  --surface-3: #22392C;
+  --ink: #EAF2EA;
+  --ink-soft: #AFC2B1;
+  --ink-faint: #70887A;
+  --line: #2A4234;
+  --line-strong: #3A5844;
+
+  --accent: #6FBB8E;
+  --accent-dark: #BFE8CE;
+  --accent-ink: #0E1F16;
+  --accent-soft: #1F3B2A;
+  --accent-soft-strong: #27492F;
+
+  --warn: #E2A463;
+  --warn-dark: #F3D2A4;
+  --warn-soft: #3A2C1A;
+
+  --danger: #E08571;
+  --danger-soft: #3A211B;
+  --ok: #6FBB8E;
+  --ok-soft: #1F3B2A;
+
+  --shadow-xs: 0 1px 2px rgba(0,0,0,.3);
+  --shadow-sm: 0 3px 12px rgba(0,0,0,.35);
+  --shadow-md: 0 14px 36px rgba(0,0,0,.45);
+  --shadow-lg: 0 30px 80px rgba(0,0,0,.55);
+  color-scheme: dark;
+}
+
+/* Leaflet needs its tiles muted slightly in dark mode so the UI doesn't fight a bright basemap */
+[data-theme="dark"] #map .leaflet-tile-pane { filter: brightness(.72) saturate(.85) invert(1) hue-rotate(185deg) contrast(.92); }
+[data-theme="dark"] #map .leaflet-marker-icon { filter: hue-rotate(185deg) invert(1); }
+
+/* ---------- 2. TYPOGRAPHY ---------- */
+.display {
+  font-family: var(--font-display);
+  font-weight: 560;
+  letter-spacing: -0.01em;
+  line-height: 1.08;
+}
+.eyebrow-label { font-size: 12px; color: var(--ink-faint); font-weight: 600; }
+.muted { color: var(--ink-soft); font-size: 13px; line-height: 1.5; }
+.faint { color: var(--ink-faint); font-size: 12px; }
+.err { color: var(--danger); font-size: 13px; margin-top: 10px; min-height: 1em; line-height: 1.4; }
+.ok-text { color: var(--ok); font-size: 13px; }
+
+/* ---------- 3. LAYOUT SHELL ---------- */
+#app { height: 100%; display: grid; grid-template-columns: var(--sidebar-w) 1fr; }
+#map { position: relative; height: 100%; background: var(--surface-3); }
+#map .leaflet-control-zoom { border: none; box-shadow: var(--shadow-sm); margin: 0 18px 18px 0 !important; }
+#map .leaflet-control-zoom a { border-radius: var(--radius-xs) !important; border-color: var(--line) !important; color: var(--ink) !important; background: var(--surface) !important; }
+#map .leaflet-popup-content-wrapper, #map .leaflet-popup-tip { background: var(--surface); color: var(--ink); }
+
+#sidebar {
+  position: relative;
+  z-index: 20;
+  background: var(--surface);
+  border-right: 1px solid var(--line);
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  box-shadow: var(--shadow-md);
+}
+
+#sidebarHead { padding: 20px 20px 14px; border-bottom: 1px solid var(--line); flex: none; }
+.brand-row { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+.brand { display: flex; align-items: center; gap: 10px; }
+.brand-mark { width: 34px; height: 34px; border-radius: 10px; background: var(--accent); color: var(--accent-ink);
+  display: flex; align-items: center; justify-content: center; flex: none; }
+.brand-mark svg { width: 18px; height: 18px; }
+.brand-name { font-family: var(--font-display); font-size: 21px; font-weight: 650; letter-spacing: -0.01em; }
+.brand-tag { font-size: 12.5px; color: var(--ink-faint); margin-top: 1px; }
+
+.icon-btn { width: 36px; height: 36px; border-radius: var(--radius-pill); border: 1px solid var(--line);
+  background: var(--surface); display: inline-flex; align-items: center; justify-content: center;
+  color: var(--ink-soft); cursor: pointer; transition: background .15s var(--ease-out), border-color .15s var(--ease-out), color .15s var(--ease-out); flex: none; }
+.icon-btn svg { width: 17px; height: 17px; }
+.icon-btn:hover { background: var(--surface-2); color: var(--ink); border-color: var(--line-strong); }
+
+#searchForm { margin-top: 14px; }
+.search-field { position: relative; }
+.search-field svg { position: absolute; left: 13px; top: 50%; transform: translateY(-50%); width: 16px; height: 16px; color: var(--ink-faint); pointer-events: none; }
+.search-field input { padding-left: 38px; padding-right: 86px; }
+.search-field .search-go { position: absolute; right: 5px; top: 5px; bottom: 5px; }
+
+.chip-row { display: flex; flex-wrap: wrap; gap: 7px; margin-top: 12px; }
+
+#sidebarBody { flex: 1 1 auto; overflow-y: auto; padding: 14px 20px 20px; }
+.results-meta { display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; }
+#resultsList { display: flex; flex-direction: column; gap: 10px; }
+
+#sidebarFoot { flex: none; border-top: 1px solid var(--line); padding: 12px 20px; display: flex; align-items: center; justify-content: space-between; gap: 8px; background: var(--surface-2); }
+.foot-links { display: flex; gap: 4px; flex-wrap: wrap; }
+.results-meta { gap: 8px; }
+.results-meta .faint { flex: 1; }
+
+#accountNav { position: fixed; top: 16px; right: 16px; z-index: 450; display: flex; gap: 8px; }
+.nav-pill { display: inline-flex; align-items: center; gap: 7px; background: var(--surface); border: 1px solid var(--line);
+  border-radius: var(--radius-pill); padding: 8px 14px 8px 10px; font-size: 13.5px; font-weight: 600; color: var(--ink);
+  box-shadow: var(--shadow-sm); cursor: pointer; transition: transform .15s var(--ease-out), box-shadow .15s var(--ease-out); }
+.nav-pill:hover { transform: translateY(-1px); box-shadow: var(--shadow-md); }
+.nav-pill svg { width: 16px; height: 16px; }
+.nav-pill.subtle { color: var(--ink-faint); font-weight: 500; }
+.nav-pill.live { background: var(--accent-soft); border-color: var(--accent-soft-strong); color: var(--accent-dark); }
+
+#sidebarToggle { display: none; }
+
+/* ---------- 4. BUTTONS ---------- */
+button.btn, button {
+  font-size: 14px; cursor: pointer; border-radius: var(--radius-pill);
+  padding: 10px 18px; border: 1px solid var(--line); background: var(--surface); color: var(--ink);
+  transition: background .15s var(--ease-out), border-color .15s var(--ease-out), transform .1s var(--ease-out), color .15s var(--ease-out), box-shadow .15s var(--ease-out);
+  display: inline-flex; align-items: center; justify-content: center; gap: 7px;
+}
+button:hover { border-color: var(--line-strong); }
+button:active { transform: scale(.97); }
+button:disabled { opacity: .5; cursor: not-allowed; transform: none; }
+button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-visible, a:focus-visible, [tabindex]:focus-visible {
+  outline: 2px solid var(--accent); outline-offset: 2px;
+}
+button svg { width: 15px; height: 15px; flex: none; }
+
+button.primary { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); font-weight: 600; }
+button.primary:hover { background: var(--accent-dark); border-color: var(--accent-dark); }
+button.dark { background: var(--ink); border-color: var(--ink); color: var(--surface); }
+button.ghost-dark { background: transparent; border-color: rgba(255,255,255,.35); color: #fff; }
+button.ghost-dark:hover { background: rgba(255,255,255,.12); }
+button.warn { background: var(--warn); border-color: var(--warn); color: #fff; font-weight: 600; }
+button.warn:hover { background: var(--warn-dark); border-color: var(--warn-dark); }
+button.red, button.danger { color: var(--danger); border-color: var(--danger-soft); background: var(--danger-soft); }
+button.red:hover, button.danger:hover { background: var(--danger); border-color: var(--danger); color: #fff; }
+button.green { background: var(--ok-soft); border-color: var(--accent-soft-strong); color: var(--accent-dark); }
+button.green:hover { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); }
+button.link { border: 0; background: none; color: var(--accent); padding: 2px 0; border-radius: 0; font-weight: 600; }
+button.link:hover { text-decoration: underline; }
+button.link.quiet { color: var(--ink-faint); font-weight: 500; }
+button.block { width: 100%; }
+button.sm { padding: 6px 12px; font-size: 12.5px; }
+button.icon-only { padding: 9px; border-radius: var(--radius-pill); }
+
+.btn-row { display: flex; gap: 8px; }
+
+/* ---------- 5. FORM CONTROLS ---------- */
+input, select, textarea {
+  width: 100%; padding: 10px 12px; border: 1px solid var(--line); border-radius: var(--radius-sm);
+  font: inherit; font-size: 14.5px; background: var(--surface); color: var(--ink);
+  transition: border-color .15s var(--ease-out), box-shadow .15s var(--ease-out);
+}
+input::placeholder, textarea::placeholder { color: var(--ink-faint); }
+input:focus, select:focus, textarea:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); }
+textarea { resize: vertical; min-height: 64px; }
+/* A plain <select> keeps the browser's native arrow by default, which clashes with
+   everything around it; draw a matching chevron instead and hide the native one. */
+select { appearance: none; -webkit-appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%238B9A8C' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E");
+  background-repeat: no-repeat; background-position: right 10px center; background-size: 15px; padding-right: 34px; }
+.chip select { appearance: none; -webkit-appearance: none; background-image: none; padding-right: 0; }
+label { display: block; font-size: 13px; font-weight: 600; margin-top: 14px; color: var(--ink); }
+label .opt { font-weight: 400; color: var(--ink-faint); }
+label input, label select, label textarea { margin-top: 5px; font-weight: 400; }
+.field-hint { font-size: 12px; color: var(--ink-faint); margin-top: 4px; line-height: 1.45; }
+.inline-fields { display: flex; gap: 8px; }
+.inline-fields > * { flex: 1; }
+fieldset { border: 0; padding: 0; margin: 0; }
+legend { font-size: 14.5px; font-weight: 650; font-family: var(--font-display); margin-top: 22px; padding: 0; }
+
+/* ---------- 5b. PASSWORD STRENGTH METER ---------- */
+.pw-meter { height: 4px; border-radius: 99px; background: var(--surface-3); margin-top: 7px; overflow: hidden; }
+.pw-meter span { display: block; height: 100%; width: 0%; border-radius: 99px; background: var(--danger); transition: width .2s var(--ease-out), background .2s var(--ease-out); }
+.pw-meter-label { margin-top: 4px; min-height: 1em; }
+
+/* ---------- 5c. TOOLTIP ---------- */
+[data-tip] { position: relative; }
+[data-tip]:hover::after, [data-tip]:focus-visible::after {
+  content: attr(data-tip); position: absolute; bottom: calc(100% + 8px); left: 50%; transform: translateX(-50%);
+  background: var(--ink); color: var(--surface); font-size: 11.5px; font-weight: 500; padding: 5px 9px;
+  border-radius: var(--radius-xs); white-space: nowrap; box-shadow: var(--shadow-sm); z-index: 20; pointer-events: none;
+}
+[data-theme="dark"] [data-tip]:hover::after { background: var(--surface-3); color: var(--ink); }
+
+/* ---------- 5d. SPINNER ---------- */
+.spinner { width: 15px; height: 15px; border-radius: 50%; border: 2px solid currentColor; border-top-color: transparent;
+  animation: spin .7s linear infinite; display: inline-block; opacity: .7; }
+@keyframes spin { to { transform: rotate(360deg); } }
+/* A brief shake draws the eye to the field that actually failed validation,
+   instead of a person hunting through the form for what's wrong. */
+.shake { animation: shake .4s var(--ease-out); }
+@keyframes shake { 20%, 60% { transform: translateX(-5px); } 40%, 80% { transform: translateX(5px); } }
+input:invalid, select:invalid { box-shadow: none; } /* don't let the browser's own invalid outline fight our focus ring */
+
+/* ---------- 6. CHIPS / BADGES / TAGS ---------- */
+.chip {
+  border: 1px solid var(--line); background: var(--surface); color: var(--ink-soft);
+  border-radius: var(--radius-pill); padding: 6px 13px; font-size: 12.5px; font-weight: 600; cursor: pointer;
+  transition: all .15s var(--ease-out); display: inline-flex; align-items: center; gap: 5px;
+}
+.chip:hover { border-color: var(--line-strong); color: var(--ink); }
+.chip.on { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); }
+.chip select { border: 0; background: none; padding: 0; font: inherit; font-weight: 600; color: inherit; width: auto; }
+.chip select:focus { box-shadow: none; }
+
+.badge { display: inline-flex; align-items: center; gap: 5px; font-size: 11.5px; font-weight: 700;
+  padding: 4px 9px; border-radius: var(--radius-pill); letter-spacing: .01em; }
+.badge.ok { background: var(--ok-soft); color: var(--ok); }
+.badge.warn { background: var(--warn-soft); color: var(--warn-dark); }
+.badge.off { background: var(--surface-3); color: var(--ink-faint); }
+.badge .dot { width: 6px; height: 6px; border-radius: 50%; background: currentColor; flex: none; }
+
+.banner { border-radius: var(--radius-md); padding: 13px 15px; font-size: 13.5px; margin-top: 14px; display: flex; gap: 10px; align-items: flex-start; line-height: 1.5; }
+.banner svg { width: 17px; height: 17px; flex: none; margin-top: 1px; }
+.banner.pending { background: var(--warn-soft); color: var(--warn-dark); }
+.banner.approved { background: var(--ok-soft); color: var(--accent-dark); }
+.banner.rejected { background: var(--danger-soft); color: var(--danger); }
+
+/* ---------- 7. CARDS ---------- */
+.box { border: 1px solid var(--line); border-radius: var(--radius-md); padding: 14px; background: var(--surface); }
+.box.subtle { background: var(--surface-2); }
+
+.result-card { border: 1px solid var(--line); border-radius: var(--radius-md); padding: 13px; background: var(--surface);
+  cursor: pointer; transition: border-color .15s var(--ease-out), box-shadow .15s var(--ease-out), transform .15s var(--ease-out); }
+.result-card:hover { border-color: var(--line-strong); box-shadow: var(--shadow-sm); transform: translateY(-1px); }
+.result-card.active { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent); }
+.result-card .rc-top { display: flex; gap: 10px; }
+.result-card .rc-name { font-weight: 650; font-size: 14.5px; }
+.result-card .rc-dept { font-size: 12.5px; color: var(--ink-soft); margin-top: 1px; }
+.result-card .rc-meta { display: flex; align-items: center; gap: 8px; margin-top: 8px; flex-wrap: wrap; }
+.result-card .rc-clinic { font-size: 12px; color: var(--ink-faint); margin-top: 7px; display: flex; gap: 5px; align-items: flex-start; line-height: 1.4; }
+.result-card .rc-clinic svg { width: 12px; height: 12px; flex: none; margin-top: 2px; }
+
+/* ---------- 8. TABS ---------- */
+.tabs { display: flex; gap: 6px; border-bottom: 1px solid var(--line); padding-bottom: 0; margin-bottom: 16px; }
+.tab { border: 0; border-radius: var(--radius-xs) var(--radius-xs) 0 0; background: none; padding: 9px 4px;
+  color: var(--ink-faint); font-weight: 600; font-size: 14px; border-bottom: 2px solid transparent; margin-bottom: -1px; }
+.tab.on { color: var(--accent); border-bottom-color: var(--accent); }
+.tab:hover:not(.on) { color: var(--ink-soft); }
+
+/* ---------- 9. MODAL + SCREEN ---------- */
+.overlay { position: fixed; inset: 0; background: rgba(13, 22, 17, .5); z-index: 1000; display: flex;
+  align-items: center; justify-content: center; padding: 18px; backdrop-filter: blur(2px); animation: fadeIn .18s var(--ease-out); }
+.card {
+  background: var(--surface); border-radius: var(--radius-lg); padding: 24px; width: 100%; max-width: 460px;
+  max-height: 92vh; overflow: auto; box-shadow: var(--shadow-lg); animation: cardIn .22s var(--ease-spring);
+  border: 1px solid var(--line);
+}
+.card h2 { font-family: var(--font-display); font-size: 20px; font-weight: 600; }
+@keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+@keyframes cardIn { from { opacity: 0; transform: translateY(10px) scale(.98); } to { opacity: 1; transform: none; } }
+
+.screen { position: fixed; inset: 0; background: var(--paper); z-index: 900; overflow: auto; animation: screenIn .24s var(--ease-out); }
+@keyframes screenIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
+.wrap { max-width: 760px; margin: 0 auto; padding: 28px 20px 70px; }
+.screen-head { position: sticky; top: 0; background: var(--paper); z-index: 5; padding: 16px 20px; margin: -16px -20px 8px;
+  display: flex; align-items: center; justify-content: space-between; gap: 10px; border-bottom: 1px solid var(--line); backdrop-filter: blur(6px); background: color-mix(in srgb, var(--paper) 88%, transparent); }
+
+.hidden { display: none !important; }
+.flex { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+.gap { display: flex; gap: 10px; align-items: center; }
+.stack { display: flex; flex-direction: column; gap: 10px; }
+.actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 20px; }
+
+.stat-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-top: 14px; }
+.stat-card { border: 1px solid var(--line); border-radius: var(--radius-md); padding: 14px; background: var(--surface); }
+.stat-card .stat-num { font-family: var(--font-display); font-size: 26px; font-weight: 650; }
+.stat-card .stat-label { font-size: 12px; color: var(--ink-faint); margin-top: 2px; }
+
+/* ---------- 10. TICKET ---------- */
+.ticket-head { background: linear-gradient(135deg, var(--accent), var(--accent-dark)); color: #fff;
+  margin: -24px -24px 16px; padding: 22px 24px; border-radius: var(--radius-lg) var(--radius-lg) 0 0; position: relative; overflow: hidden; }
+.ticket-head::after { content: ""; position: absolute; right: -30px; top: -30px; width: 140px; height: 140px;
+  border-radius: 50%; background: rgba(255,255,255,.08); }
+.ticket-head .eyebrow-label { color: rgba(255,255,255,.75); }
+.ticket-head .token-num { font-family: var(--font-display); font-size: 30px; font-weight: 650; margin-top: 2px; }
+.ticket-row { display: flex; justify-content: space-between; gap: 12px; font-size: 14px; padding: 5px 0; border-bottom: 1px dashed var(--line); }
+.ticket-row:last-of-type { border-bottom: 0; }
+.ticket-row span:first-child { color: var(--ink-faint); }
+.ticket-row span:last-child { font-weight: 600; text-align: right; }
+.ticket-perf { border: none; background: transparent; position: relative; height: 2px; margin: 16px 0; }
+.ticket-perf::before { content: ""; position: absolute; inset: 0; border-top: 2px dashed var(--line); }
+
+/* ---------- 11. TOASTS ---------- */
+#connBanner { position: fixed; top: 0; left: 0; right: 0; z-index: 1300; background: var(--ink); color: var(--surface);
+  text-align: center; font-size: 13px; font-weight: 600; padding: 9px; transform: translateY(-100%);
+  transition: transform .25s var(--ease-out); display: flex; align-items: center; justify-content: center; gap: 7px; }
+#connBanner.show { transform: translateY(0); }
+#connBanner svg { width: 14px; height: 14px; }
+
+#toasts { position: fixed; bottom: 18px; left: 50%; transform: translateX(-50%); z-index: 1200;
+  display: flex; flex-direction: column; gap: 8px; align-items: center; pointer-events: none; width: min(420px, calc(100% - 32px)); }
+.toast { pointer-events: auto; background: var(--ink); color: var(--surface); border-radius: var(--radius-pill);
+  padding: 11px 18px; font-size: 13.5px; font-weight: 500; box-shadow: var(--shadow-lg); display: flex; align-items: center; gap: 9px;
+  animation: toastIn .25s var(--ease-spring); max-width: 100%; }
+.toast svg { width: 16px; height: 16px; flex: none; }
+.toast.error { background: var(--danger); }
+.toast.success { background: var(--accent-dark); }
+.toast.leaving { animation: toastOut .18s var(--ease-out) forwards; }
+@keyframes toastIn { from { opacity: 0; transform: translateY(10px) scale(.95); } to { opacity: 1; transform: none; } }
+@keyframes toastOut { to { opacity: 0; transform: translateY(6px) scale(.96); } }
+
+/* ---------- 12. SKELETONS & EMPTY STATES ---------- */
+.skel { background: linear-gradient(100deg, var(--surface-2) 30%, var(--surface-3) 50%, var(--surface-2) 70%);
+  background-size: 200% 100%; animation: shimmer 1.3s ease-in-out infinite; border-radius: var(--radius-sm); }
+@keyframes shimmer { to { background-position: -200% 0; } }
+.skel-card { border: 1px solid var(--line); border-radius: var(--radius-md); padding: 13px; }
+.skel-line { height: 10px; border-radius: 5px; margin-top: 8px; }
+
+.empty-state { text-align: center; padding: 34px 14px; }
+.empty-state svg { width: 40px; height: 40px; color: var(--ink-faint); margin: 0 auto 12px; }
+.empty-state h3 { font-family: var(--font-display); font-size: 16px; font-weight: 600; }
+.empty-state p { font-size: 13px; color: var(--ink-faint); margin-top: 5px; max-width: 280px; margin-left: auto; margin-right: auto; line-height: 1.5; }
+
+/* ---------- 13. AVATARS ---------- */
+.avatar { border-radius: 50%; background: var(--accent-soft); color: var(--accent-dark); font-weight: 700;
+  display: flex; align-items: center; justify-content: center; flex: none; overflow: hidden; font-size: 15px; }
+.avatar img { width: 100%; height: 100%; object-fit: cover; }
+
+/* ---------- 14. SCROLLBARS ---------- */
+#sidebarBody, .screen, .card { scrollbar-width: thin; scrollbar-color: var(--line-strong) transparent; }
+#sidebarBody::-webkit-scrollbar, .screen::-webkit-scrollbar, .card::-webkit-scrollbar { width: 9px; }
+#sidebarBody::-webkit-scrollbar-thumb, .screen::-webkit-scrollbar-thumb, .card::-webkit-scrollbar-thumb { background: var(--line-strong); border-radius: 99px; border: 2px solid var(--surface); }
+
+/* ---------- 15. MOTION & ACCESSIBILITY ---------- */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation-duration: .001ms !important; animation-iteration-count: 1 !important; transition-duration: .001ms !important; }
+}
+.sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0,0,0,0); white-space: nowrap; border: 0; }
+
+/* ---------- 16. RESPONSIVE ---------- */
+/* Tablets keep the side-by-side layout but with a narrower list column, so the
+   map still gets most of the screen. */
+@media (max-width: 1100px) and (min-width: 881px) {
+  :root { --sidebar-w: 320px; }
+  .stat-grid { gap: 7px; }
+}
+@media (max-width: 880px) {
+  #app { display: block; }
+  #map { position: fixed; inset: 0; height: 100%; }
+  #sidebar {
+    position: fixed; left: 0; right: 0; bottom: 0; top: auto; height: 78vh; border-right: 0;
+    border-radius: var(--radius-lg) var(--radius-lg) 0 0; border-top: 1px solid var(--line);
+    transform: translateY(calc(100% - 172px)); transition: transform .3s var(--ease-out);
+  }
+  #sidebar.open { transform: translateY(0); }
+  #sidebarHead { cursor: pointer; }
+  #sidebarHead::before { content: ""; width: 38px; height: 4px; background: var(--line-strong); border-radius: 99px; display: block; margin: 0 auto 12px; }
+  #accountNav { top: auto; bottom: calc(78vh + 12px); right: 12px; flex-direction: column; align-items: flex-end; }
+  #accountNav .nav-pill span.label { display: none; }
+  #accountNav .nav-pill { padding: 10px; }
+  .wrap { padding: 22px 16px 60px; }
+  .stat-grid { grid-template-columns: repeat(3, 1fr); }
+}
+@media (max-width: 520px) {
+  .card { max-width: 100%; border-radius: var(--radius-lg) var(--radius-lg) 0 0; align-self: flex-end; max-height: 88vh; }
+  .overlay { align-items: flex-end; padding: 0; }
+  .overlay .card { animation: sheetIn .22s var(--ease-out); }
+  @keyframes sheetIn { from { transform: translateY(30px); opacity: 0;} to { transform: none; opacity: 1; } }
+}
+
+/* ---------- 17. PRINT ----------
+   Printing is only ever meaningful for one thing here: a patient printing their
+   appointment ticket as a physical copy for the clinic. Everything else — the
+   map, the dark overlay backdrop, action buttons — is noise on paper, so print
+   mode strips the page down to just the ticket card content. */
+@media print {
+  #app, #accountNav, #toasts, #sidebarToggle, #connBanner { display: none !important; }
+  .overlay { position: static; background: none; padding: 0; backdrop-filter: none; display: block; }
+  .card { box-shadow: none; border: 1px solid #000; max-width: 100%; animation: none; }
+  .card .actions { display: none !important; }
+  .ticket-head { background: #fff !important; color: #000 !important; border-bottom: 2px solid #000; }
+  .ticket-head::after { display: none; }
+  .ticket-row span:first-child { color: #444; }
+}
+</style>
+</head>
+<body>
+
+<!-- ============ ICON SPRITE (inline SVG, referenced via <use>) ============ -->
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+<defs>
+<symbol id="i-search" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></symbol>
+<symbol id="i-pin" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s7-7.4 7-12.5A7 7 0 0 0 5 9.5C5 14.6 12 22 12 22Z"/><circle cx="12" cy="9.5" r="2.4"/></symbol>
+<symbol id="i-user" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="3.6"/><path d="M4.5 20.2c1.4-3.6 4.4-5.6 7.5-5.6s6.1 2 7.5 5.6"/></symbol>
+<symbol id="i-stethoscope" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 3v6a4 4 0 0 0 8 0V3"/><path d="M9 13v2a6 6 0 0 0 12 0v-2.5"/><circle cx="21" cy="10.5" r="1.6"/><circle cx="5" cy="3" r="1.3"/><circle cx="9" cy="3" r="1.3"/></symbol>
+<symbol id="i-shield" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2.5 4.5 5.5V11c0 5.2 3.3 8.7 7.5 10.5 4.2-1.8 7.5-5.3 7.5-10.5V5.5L12 2.5Z"/></symbol>
+<symbol id="i-calendar" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3.5" y="5" width="17" height="16" rx="2.5"/><path d="M3.5 10h17M8 3v4M16 3v4"/></symbol>
+<symbol id="i-clock" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="8.5"/><path d="M12 7.5V12l3 2"/></symbol>
+<symbol id="i-phone" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 3.5h3l1.5 4-2 1.5a12 12 0 0 0 5.5 5.5l1.5-2 4 1.5v3c0 1.1-.9 2-2 2C10.7 19 4 12.3 4 5.5c0-1.1.9-2 2-2Z"/></symbol>
+<symbol id="i-mail" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="14" rx="2.5"/><path d="m4 6.5 8 6 8-6"/></symbol>
+<symbol id="i-download" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3.5v11.5M7.5 11l4.5 4.5L16.5 11"/><path d="M4.5 18.5v1a2 2 0 0 0 2 2h11a2 2 0 0 0 2-2v-1"/></symbol>
+<symbol id="i-check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M4.5 12.5l5 5 10-11"/></symbol>
+<symbol id="i-x" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M5 5l14 14M19 5 5 19"/></symbol>
+<symbol id="i-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 5l7 7-7 7"/></symbol>
+<symbol id="i-building" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="3.5" width="14" height="17" rx="1.5"/><path d="M9 8h.01M15 8h.01M9 12h.01M15 12h.01M9 16h.01M15 16h.01"/></symbol>
+<symbol id="i-logout" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 20H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h3M16 16l4-4-4-4M20 12H9"/></symbol>
+<symbol id="i-camera" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 8.5A1.5 1.5 0 0 1 5.5 7h2l1-2h7l1 2h2A1.5 1.5 0 0 1 20 8.5v9A1.5 1.5 0 0 1 18.5 19h-13A1.5 1.5 0 0 1 4 17.5v-9Z"/><circle cx="12" cy="13" r="3.4"/></symbol>
+<symbol id="i-plus" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></symbol>
+<symbol id="i-moon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 14.5A8.5 8.5 0 1 1 9.5 4a7 7 0 0 0 10.5 10.5Z"/></symbol>
+<symbol id="i-sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4.2"/><path d="M12 2.5v2M12 19.5v2M4.2 4.2l1.4 1.4M18.4 18.4l1.4 1.4M2.5 12h2M19.5 12h2M4.2 19.8l1.4-1.4M18.4 5.6l1.4-1.4"/></symbol>
+<symbol id="i-award" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8.5" r="5.5"/><path d="m8.2 13.2-1.6 7.3 5.4-2.9 5.4 2.9-1.6-7.3"/></symbol>
+<symbol id="i-alert" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3.5 2.5 20h19L12 3.5Z"/><path d="M12 9.5v4.5M12 17h.01"/></symbol>
+<symbol id="i-info" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="8.5"/><path d="M12 11v5.5M12 7.8h.01"/></symbol>
+<symbol id="i-ticket" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9.5a2 2 0 0 0 0 5V17a1.5 1.5 0 0 0 1.5 1.5h15A1.5 1.5 0 0 0 21 17v-2.5a2 2 0 0 1 0-5V7A1.5 1.5 0 0 0 19.5 5.5h-15A1.5 1.5 0 0 0 3 7v2.5Z"/><path d="M14 5.5v13" stroke-dasharray="2.2 2.2"/></symbol>
+<symbol id="i-list" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 6h12M8 12h12M8 18h12M3.5 6h.01M3.5 12h.01M3.5 18h.01"/></symbol>
+<symbol id="i-link" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9.5 14.5 14.5 9.5"/><path d="M11 6.5 12.5 5a3.9 3.9 0 0 1 5.5 5.5L16.5 12"/><path d="M13 17.5 11.5 19A3.9 3.9 0 0 1 6 13.5L7.5 12"/></symbol>
+</defs>
+</svg>
+
+<div id="app">
+
+  <!-- ============ SIDEBAR: search, filters, results ============ -->
+  <aside id="sidebar">
+    <div id="sidebarHead">
+      <div class="brand-row">
+        <div class="brand">
+          <div class="brand-mark"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round"><path d="M12 3v18M3 12h18"/></svg></div>
+          <div>
+            <div class="brand-name">DocSearch</div>
+            <div class="brand-tag">Find and book doctors near you</div>
+          </div>
+        </div>
+        <button class="icon-btn" type="button" id="themeToggle" title="Toggle dark mode" aria-label="Toggle dark mode">
+          <svg id="themeIcon"><use href="#i-moon"/></svg>
+        </button>
+      </div>
+
+      <form id="searchForm" data-form="search">
+        <div class="search-field">
+          <svg><use href="#i-search"/></svg>
+          <input name="city" id="cityInput" placeholder="Search a city, e.g. Kochi" required autocomplete="off" />
+          <button class="primary sm search-go" id="searchBtn" type="submit">Search</button>
+        </div>
+      </form>
+
+      <div class="chip-row">
+        <button class="chip" type="button" id="geoChip" data-act="useLocation" data-target="search">
+          <svg style="width:12px;height:12px"><use href="#i-pin"/></svg> Near me
+        </button>
+        <label class="chip" style="padding:5px 11px 5px 10px">
+          <select id="deptFilter" aria-label="Filter by department">
+            <option value="">All departments</option>
+          </select>
+        </label>
+        <button class="chip" type="button" id="availChip" data-act="toggleAvailChip">Available now</button>
+        <button class="chip" type="button" id="savedChip" data-act="toggleSavedChip">♥ Saved</button>
+        <label class="chip" style="padding:5px 11px 5px 10px">
+          <select id="sortBy" aria-label="Sort by">
+            <option value="recommended">Sort: Recommended</option>
+            <option value="experience">Sort: Most experienced</option>
+            <option value="available">Sort: Available first</option>
+          </select>
+        </label>
+      </div>
+
+      <p class="err" id="searchMsg" style="margin-top:8px;margin-bottom:0"></p>
+    </div>
+
+    <div id="sidebarBody">
+      <div class="results-meta">
+        <span class="faint" id="resultsCount">Search a city to see nearby doctors</span>
+        <button class="link quiet sm hidden" id="clearFiltersBtn" type="button" data-act="clearFilters">Clear filters</button>
+      </div>
+      <div id="resultsList"></div>
+    </div>
+
+    <div id="sidebarFoot">
+      <span class="faint">DocSearch · community clinic directory</span>
+      <div class="foot-links">
+        <button class="link quiet sm" data-act="patientHub" style="padding:4px 6px">My bookings</button>
+        <button class="link quiet sm" data-act="shortcuts" style="padding:4px 6px">Shortcuts</button>
+      </div>
+    </div>
+  </aside>
+
+  <div id="map" role="application" aria-label="Map of nearby doctors"></div>
+</div>
+
+<!-- ============ ACCOUNT NAV (floats over the map; visibility is session-aware) ============ -->
+<nav id="accountNav" aria-label="Account">
+  <button class="nav-pill" data-act="patientHub" id="navPatientBtn">
+    <svg><use href="#i-user"/></svg><span class="label">My Account</span>
+  </button>
+  <button class="nav-pill subtle" data-act="doctorHub" id="navDoctorBtn">
+    <svg><use href="#i-stethoscope"/></svg><span class="label">Doctor Portal</span>
+  </button>
+  <button class="nav-pill subtle" data-act="adminHub" id="navAdminBtn">
+    <svg><use href="#i-shield"/></svg><span class="label">Admin</span>
+  </button>
+</nav>
+
+<button id="sidebarToggle" class="nav-pill live" data-act="toggleSidebar" type="button">
+  <svg><use href="#i-list"/></svg><span class="label" id="sidebarToggleLabel">List</span>
+</button>
+
+<div id="connBanner"><svg><use href="#i-alert"/></svg><span>You're offline — some actions won't work until you reconnect.</span></div>
+<div id="modal" class="overlay hidden" role="dialog" aria-modal="true"></div>
+<div id="screen" class="screen hidden"></div>
+<div id="toasts" role="status" aria-live="polite"></div>
+
+<script>
+/* ================================================================================
+   DOCSEARCH — FRONTEND
+   A single-file client for a doctor directory & appointment-booking service.
+   Everything here is presentation + client logic; all real work (auth, storage,
+   availability, approvals) happens on the server behind the /api/* endpoints
+   that `api()` below talks to. Nothing in this file should be treated as a
+   source of truth — it's a view onto whatever the server returns.
+
+   SECTIONS
+     1  Helpers & low-level utilities      — esc(), api(), geocode(), modal/screen plumbing
+     1b Favorites                          — locally-saved doctors (device-only, no account needed)
+     2  Toast notifications                — non-blocking background feedback
+     3  Session manager                    — login state + which account entry points are shown
+     4  Map, search, filters & results     — Leaflet map, city search, department/availability/sort
+     5  Doctor profile popup               — a single doctor's public card
+     6  Booking flow                       — date → slot → patient details → confirm
+     7  Ticket & PDF                       — the confirmation screen, PDF + .ics export
+     8  Patient hub                        — patient sign in/register, bookings, no-account lookup
+     9  Doctor hub                         — doctor sign in/register
+     10 Doctor dashboard                   — profile editor, schedule, appointment list
+     11 Admin dashboard                    — approve/reject doctor registrations
+     12 Event wiring                       — one delegated click/submit/change listener per event type
+     13 Init                               — boots theme, session, connectivity, deep links
+
+   THREE SEPARATE SESSIONS, THREE SEPARATE TOKENS
+   A patient, a doctor, and an admin are three unrelated identities that can,
+   in principle, all be "logged in" in the same browser at once (their tokens
+   live under different localStorage keys — PATIENT_TOKEN / DOCTOR_TOKEN /
+   ADMIN_TOKEN). That's a deliberate simplification for a shared/demo browser,
+   but it means the UI has to work hard to keep the three apart:
+
+     - syncSession() (section 3) is the ONLY place that decides which of the
+       three account-nav buttons are visible. When a patient is signed in,
+       the doctor and admin sign-in buttons are removed from the DOM — not
+       just hidden with CSS — so there is no element a patient can click,
+       tab to, or find via a screen reader that leads to a doctor or admin
+       login form. The same isolation holds for a signed-in doctor or admin.
+     - Every hub (openPatientHub / openDoctorHub / openAdminHub) only ever
+       renders its own sign-in/register UI; none of them link to either of
+       the other two, so there's no secondary path back in.
+     - api() only attaches the token that the caller explicitly asks for via
+       `tokenKey`, so a patient-authenticated request can never accidentally
+       carry a doctor or admin bearer token, or vice versa.
+   This is a UI-layer safeguard, not a substitute for the server enforcing
+   its own authorization on every endpoint — treat it as defense in depth.
+   ================================================================================ */
+
+/* ---------- 1. HELPERS ---------- */
+const $ = (sel, root = document) => root.querySelector(sel);
+const $$ = (sel, root = document) => [...root.querySelectorAll(sel)];
+// IMPORTANT: every piece of user-supplied text goes through esc() before it is put in HTML.
+const esc = (v) => String(v ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+const DEPARTMENTS = ["General Physician", "Cardiologist", "Dermatologist", "Orthopedic", "Pediatrician",
+  "Gynecologist", "ENT Specialist", "Dentist", "Psychiatrist", "Other"];
+const DAYS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
+const PATIENT_TOKEN = "ds_patient_token", DOCTOR_TOKEN = "ds_doctor_token", ADMIN_TOKEN = "ds_admin_token";
+const THEME_KEY = "ds_theme";
+const FAVORITES_KEY = "ds_favorite_doctors";
+const RECENT_KEY = "ds_recent_doctors";
+const today = () => new Date().toISOString().slice(0, 10);
+const debounce = (fn, ms = 260) => { let t; return (...a) => { clearTimeout(t); t = setTimeout(() => fn(...a), ms); }; };
+
+// Talks to our server. tokenKey says which saved login (patient/doctor/admin) to send along.
+async function api(path, { method = "GET", body, tokenKey } = {}) {
+  const headers = {};
+  if (body) headers["Content-Type"] = "application/json";
+  const token = tokenKey && localStorage.getItem(tokenKey);
+  if (token) headers.Authorization = "Bearer " + token;
+  let res;
+  try {
+    res = await fetch("/api" + path, { method, headers, body: body ? JSON.stringify(body) : undefined });
+  } catch {
+    // fetch() itself only throws for network-level failures (offline, DNS, CORS) —
+    // a real HTTP error still resolves normally and is handled below instead.
+    throw new Error(navigator.onLine ? "Couldn't reach the server. Please try again." : "You're offline right now.");
+  }
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) { const e = new Error(data.error || "Request failed"); e.status = res.status; throw e; }
+  return data;
+}
+
+// Turns a city name into coordinates using OpenStreetMap's free Nominatim service.
+async function geocode(city) {
+  const r = await fetch("https://nominatim.openstreetmap.org/search?format=json&limit=1&q=" + encodeURIComponent(city));
+  const list = await r.json();
+  if (!list.length) throw new Error(`Couldn't find "${city}". Check the spelling.`);
+  return { lat: Number(list[0].lat), lng: Number(list[0].lon) };
+}
+
+const openModal = (html) => {
+  $("#modal").innerHTML = `<div class="card">${html}</div>`;
+  $("#modal").classList.remove("hidden");
+  const focusable = $("#modal input, #modal select, #modal textarea, #modal button");
+  if (focusable) setTimeout(() => focusable.focus(), 50);
+};
+const closeModal = () => $("#modal").classList.add("hidden");
+
+// Keeps Tab/Shift+Tab cycling inside the open modal instead of leaking focus out
+// to the page behind it — a small thing, but it's the difference between a dialog
+// that's usable with a keyboard and one that quietly traps a screen-reader user.
+document.addEventListener("keydown", (e) => {
+  if (e.key !== "Tab") return;
+  const modal = $("#modal");
+  if (modal.classList.contains("hidden")) return;
+  const focusables = $$('input, select, textarea, button, a[href], [tabindex]:not([tabindex="-1"])', modal)
+    .filter((el) => !el.disabled && el.offsetParent !== null);
+  if (!focusables.length) return;
+  const first = focusables[0], last = focusables[focusables.length - 1];
+  if (e.shiftKey && document.activeElement === first) { e.preventDefault(); last.focus(); }
+  else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first.focus(); }
+});
+const openScreen = (html) => { $("#screen").innerHTML = `<div class="wrap">${html}</div>`; $("#screen").classList.remove("hidden"); document.body.style.overflow = "hidden"; };
+// Tracks whether the doctor's profile form has unsaved edits, so navigating away
+// (via the back button in the UI, or closing the tab) can warn before the work
+// is lost — a small thing, but losing a half-filled schedule editor is annoying.
+let profileDirty = false;
+const closeScreen = () => {
+  if (profileDirty && !confirm("You have unsaved profile changes. Discard them?")) return;
+  profileDirty = false;
+  $("#screen").classList.add("hidden"); syncSession();
+};
+window.addEventListener("beforeunload", (e) => { if (profileDirty) { e.preventDefault(); e.returnValue = ""; } });
+const initials = (name) => String(name ?? "").replace(/^Dr\.?\s*/i, "").split(/\s+/).map((w) => w[0]).slice(0, 2).join("").toUpperCase();
+const formData = (form) => Object.fromEntries(new FormData(form));
+// Shows the doctor's uploaded photo if they have one, otherwise their initials.
+const avatarHtml = (d, size = 48) => d.profilePic
+  ? `<div class="avatar" style="width:${size}px;height:${size}px"><img src="${esc(d.profilePic)}" alt=""></div>`
+  : `<div class="avatar" style="width:${size}px;height:${size}px">${esc(initials(d.name))}</div>`;
+
+// Holds a pending photo (data URL) / location {lat,lng} picked in a form before it's submitted.
+const photoOverride = {}, locationOverride = {};
+
+function readImageResized(file, maxSize = 240, quality = 0.72) {
+  return new Promise((resolve, reject) => {
+    if (!file.type.startsWith("image/")) return reject(new Error("Please choose an image file."));
+    if (file.size > 8 * 1024 * 1024) return reject(new Error("That image is too large (max 8MB)."));
+    const reader = new FileReader();
+    reader.onerror = () => reject(new Error("Couldn't read that file."));
+    reader.onload = () => {
+      const img = new Image();
+      img.onerror = () => reject(new Error("That doesn't look like a valid image."));
+      img.onload = () => {
+        const scale = Math.min(1, maxSize / Math.max(img.width, img.height));
+        const w = Math.round(img.width * scale), h = Math.round(img.height * scale);
+        const canvas = document.createElement("canvas");
+        canvas.width = w; canvas.height = h;
+        canvas.getContext("2d").drawImage(img, 0, 0, w, h);
+        resolve(canvas.toDataURL("image/jpeg", quality));
+      };
+      img.src = reader.result;
+    };
+    reader.readAsDataURL(file);
+  });
+}
+
+async function handlePhotoPick(key, file) {
+  const msg = $(`#${key}PicMsg`);
+  if (!file) return;
+  msg.textContent = "Processing photo…";
+  try {
+    const dataUrl = await readImageResized(file);
+    photoOverride[key] = dataUrl;
+    $(`#${key}PicPreview`).innerHTML = `<img src="${dataUrl}" alt="" style="width:100%;height:100%;object-fit:cover">`;
+    msg.textContent = "Photo ready — will be saved.";
+  } catch (e) { msg.textContent = e.message; }
+}
+
+async function handleUseLocation(key) {
+  const msg = $(`#${key}LocMsg`) || { textContent: "" };
+  if (!navigator.geolocation) { toast("Your browser doesn't support location detection.", "error"); return; }
+  toast("Detecting your location…");
+  navigator.geolocation.getCurrentPosition(
+    async (pos) => {
+      const lat = pos.coords.latitude, lng = pos.coords.longitude;
+      locationOverride[key] = { lat, lng };
+      try {
+        const r = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}`);
+        const data = await r.json();
+        const addr = data.address || {};
+        const detectedCity = addr.city || addr.town || addr.village || addr.county || addr.state || "";
+        if (key === "search") {
+          map.flyTo([lat, lng], 13);
+          if (detectedCity) $("#cityInput").value = detectedCity;
+          runSearchAt(lat, lng, detectedCity || "your location");
+          return;
+        }
+        if (detectedCity) {
+          const form = (msg.closest && msg.closest("form")) || document;
+          const cityInput = form.querySelector(`[name="city"]`);
+          if (cityInput) cityInput.value = detectedCity;
+          msg.textContent = `📍 Location set to "${detectedCity}" (±${Math.round(pos.coords.accuracy)}m).`;
+        } else {
+          msg.textContent = `📍 GPS pinned (±${Math.round(pos.coords.accuracy)}m).`;
+        }
+      } catch {
+        msg.textContent = `📍 GPS pinned (±${Math.round(pos.coords.accuracy)}m).`;
+      }
+    },
+    (err) => {
+      const text = err.code === 1 ? "Location permission denied." : "Couldn't detect GPS. Try an exact address search instead.";
+      if (key === "search") toast(text, "error"); else msg.textContent = text;
+    },
+    { enableHighAccuracy: true, timeout: 20000, maximumAge: 0 }
+  );
+}
+
+async function handleAddressGeocode(key) {
+  const msg = $(`#${key}LocMsg`);
+  const addrInput = $(`#${key}ExactAddr`);
+  const query = addrInput ? addrInput.value : "";
+  if (!query || !query.trim()) { msg.textContent = "Please enter an address first."; return; }
+  msg.textContent = "Geocoding address precisely…";
+  try {
+    const { lat, lng } = await geocode(query);
+    locationOverride[key] = { lat, lng };
+    msg.textContent = `📍 Address pinned precisely (${lat.toFixed(4)}, ${lng.toFixed(4)}).`;
+  } catch (e) {
+    msg.textContent = e.message;
+  }
+}
+
+/* ---------- 1b. FAVORITES (saved doctors, kept locally on this device) ---------- */
+// Favorites store a little more than just an id (name + department) so the
+// "Saved doctors" list in the patient hub can render without extra round-trips —
+// the same trick `getRecents()` uses.
+function getFavorites() { try { return JSON.parse(localStorage.getItem(FAVORITES_KEY) || "[]"); } catch { return []; } }
+function isFavorite(id) { return getFavorites().some((f) => f.id === id); }
+function toggleFavorite(d) {
+  const favs = getFavorites();
+  const idx = favs.findIndex((f) => f.id === d.id);
+  if (idx === -1) { favs.unshift({ id: d.id, name: d.name, department: d.department }); toast("Saved to your list.", "success"); }
+  else { favs.splice(idx, 1); toast("Removed from your list."); }
+  localStorage.setItem(FAVORITES_KEY, JSON.stringify(favs));
+  return idx === -1;
+}
+function favoriteButton(d, size = 34) {
+  const on = isFavorite(d.id);
+  return `<button class="icon-btn" data-act="toggleFavorite" data-id="${esc(d.id)}" data-name="${esc(d.name)}" data-department="${esc(d.department)}"
+      style="width:${size}px;height:${size}px;${on ? "color:var(--warn);border-color:var(--warn-soft);background:var(--warn-soft)" : ""}" aria-pressed="${on}" data-tip="${on ? "Remove from saved" : "Save this doctor"}">
+    <svg style="width:16px;height:16px" fill="${on ? "currentColor" : "none"}" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M12 20.5s-7.8-4.9-10-9.6C.4 7 2.3 3.5 5.9 3c2-.3 3.9.6 5 2.2C12 3.6 13.9 2.7 16 3c3.6.5 5.5 4 3.9 7.9-2.2 4.7-10 9.6-10 9.6Z"/></svg></button>`;
+}
+
+/* ---------- 1c. RECENTLY VIEWED (a lightweight memory of what you've looked at) ---------- */
+function recordRecentView(d) {
+  let recents = getRecents().filter((r) => r.id !== d.id);
+  recents.unshift({ id: d.id, name: d.name, department: d.department });
+  localStorage.setItem(RECENT_KEY, JSON.stringify(recents.slice(0, 6)));
+}
+function getRecents() { try { return JSON.parse(localStorage.getItem(RECENT_KEY) || "[]"); } catch { return []; } }
+
+/* ---------- 2. TOAST NOTIFICATIONS ---------- */
+// A small, unobtrusive way to surface background results (location found, saved, errors)
+// without blocking the UI the way alert() does.
+function toast(message, kind = "info", ms = 3400) {
+  const host = $("#toasts");
+  const el = document.createElement("div");
+  el.className = `toast ${kind === "error" ? "error" : kind === "success" ? "success" : ""}`.trim();
+  const icon = kind === "error" ? "i-alert" : kind === "success" ? "i-check" : "i-info";
+  el.innerHTML = `<svg><use href="#${icon}"/></svg><span></span>`;
+  el.querySelector("span").textContent = message;
+  host.appendChild(el);
+  setTimeout(() => {
+    el.classList.add("leaving");
+    el.addEventListener("animationend", () => el.remove(), { once: true });
+  }, ms);
+}
+
+/* ---------- 3. SESSION MANAGER ----------
+   A patient signed in to the patient portal should never be shown, or be one click
+   away from, the doctor/admin sign-in forms — and the reverse is true too. This is
+   the single place that decides which of the three account entry points are visible,
+   so a patient session can never surface doctor (or admin) login affordances. */
+function currentRole() {
+  if (localStorage.getItem(PATIENT_TOKEN)) return "patient";
+  if (localStorage.getItem(DOCTOR_TOKEN)) return "doctor";
+  if (localStorage.getItem(ADMIN_TOKEN)) return "admin";
+  return null;
+}
+
+function syncSession() {
+  const role = currentRole();
+  const patientBtn = $("#navPatientBtn"), doctorBtn = $("#navDoctorBtn"), adminBtn = $("#navAdminBtn");
+
+  // Default: nobody is signed in anywhere — all three entry points are visible,
+  // each simply offering to sign in.
+  patientBtn.classList.remove("hidden"); doctorBtn.classList.remove("hidden"); adminBtn.classList.remove("hidden");
+  patientBtn.querySelector(".label").textContent = "My Account";
+  doctorBtn.querySelector(".label").textContent = "Doctor Portal";
+  adminBtn.querySelector(".label").textContent = "Admin";
+  patientBtn.classList.remove("live"); doctorBtn.classList.remove("live"); adminBtn.classList.remove("live");
+
+  if (role === "patient") {
+    // A patient is using the portal: only their own account entry remains. The
+    // doctor-login and admin-login buttons are removed from the DOM entirely —
+    // not just styled away — so no doctor/admin sign-in affordance is reachable.
+    doctorBtn.classList.add("hidden");
+    adminBtn.classList.add("hidden");
+    patientBtn.classList.add("live");
+    patientBtn.querySelector(".label").textContent = "My Account";
+  } else if (role === "doctor") {
+    patientBtn.classList.add("hidden");
+    adminBtn.classList.add("hidden");
+    doctorBtn.classList.add("live");
+    doctorBtn.querySelector(".label").textContent = "My dashboard";
+  } else if (role === "admin") {
+    patientBtn.classList.add("hidden");
+    doctorBtn.classList.add("hidden");
+    adminBtn.classList.add("live");
+    adminBtn.querySelector(".label").textContent = "Admin dashboard";
+  }
+}
+</script>
+<script>
+/* ---------- 4. MAP, SEARCH, FILTERS & RESULTS LIST ---------- */
+const map = L.map("map", { zoomControl: false }).setView([9.9312, 76.2673], 12);
+L.control.zoom({ position: "bottomright" }).addTo(map);
+L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png", {
+  attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+}).addTo(map);
+const markers = L.layerGroup().addTo(map);
+let doctors = [];           // the full result set for the current city search
+let activeDoctorId = null;  // last doctor clicked, for highlighting the matching card/marker
+let availOnly = false;
+let savedOnly = false;
+
+// A pin-shaped divIcon colored to match the brand, so markers look intentional
+// rather than Leaflet's stock blue teardrop.
+function pinIcon(highlighted = false) {
+  return L.divIcon({
+    className: "",
+    html: `<svg width="30" height="38" viewBox="0 0 24 30" style="filter:drop-shadow(0 3px 6px rgba(0,0,0,.35))">
+      <path d="M12 0C5.4 0 0 5.3 0 11.8 0 20.5 12 30 12 30s12-9.5 12-18.2C24 5.3 18.6 0 12 0Z" fill="${highlighted ? "#B8601F" : "#2F6F4E"}"/>
+      <circle cx="12" cy="11.5" r="4.6" fill="#fff"/></svg>`,
+    iconSize: [30, 38], iconAnchor: [15, 36], popupAnchor: [0, -32]
+  });
+}
+
+function populateDeptFilter() {
+  const sel = $("#deptFilter");
+  const current = sel.value;
+  sel.innerHTML = `<option value="">All departments</option>` + DEPARTMENTS.map((d) => `<option>${esc(d)}</option>`).join("");
+  sel.value = current;
+}
+populateDeptFilter();
+
+function filteredDoctors() {
+  const dept = $("#deptFilter").value;
+  const sortBy = $("#sortBy") ? $("#sortBy").value : "recommended";
+  let list = doctors.filter((d) => (!dept || d.department === dept) && (!availOnly || d.isAvailable) && (!savedOnly || isFavorite(d.id)));
+  if (sortBy === "experience") list = [...list].sort((a, b) => b.experienceYears - a.experienceYears);
+  else if (sortBy === "available") list = [...list].sort((a, b) => (b.isAvailable === true) - (a.isAvailable === true));
+  return list;
+}
+
+async function searchCity(city) {
+  const { lat, lng } = await geocode(city);
+  map.flyTo([lat, lng], 13);
+  await runSearchAt(lat, lng, city);
+}
+
+async function runSearchAt(lat, lng, label) {
+  renderResultsSkeleton();
+  try {
+    doctors = await api(`/doctors?lat=${lat}&lng=${lng}&radius=100`);
+  } catch (e) {
+    $("#searchMsg").textContent = e.message;
+    renderResultsList([]);
+    return;
+  }
+  $("#searchMsg").textContent = "";
+  renderMarkers();
+  renderResultsList(filteredDoctors());
+  $("#resultsCount").textContent = doctors.length
+    ? `${doctors.length} doctor${doctors.length === 1 ? "" : "s"} near ${label}`
+    : `No registered doctors found near ${label} yet`;
+  if (window.innerWidth <= 880) $("#sidebar").classList.add("open");
+}
+
+function renderMarkers() {
+  markers.clearLayers();
+  doctors.forEach((d) => {
+    L.marker([d.lat, d.lng], { icon: pinIcon(d.id === activeDoctorId) })
+      .addTo(markers)
+      .on("click", () => { activeDoctorId = d.id; showDoctor(d.id); highlightCard(d.id); });
+  });
+}
+
+function highlightCard(id) {
+  $$(".result-card").forEach((el) => el.classList.toggle("active", el.dataset.id === id));
+}
+
+function renderResultsSkeleton() {
+  $("#resultsCount").textContent = "Searching…";
+  $("#resultsList").innerHTML = Array.from({ length: 4 }).map(() => `
+    <div class="skel-card">
+      <div class="gap"><div class="skel" style="width:48px;height:48px;border-radius:50%"></div>
+        <div style="flex:1"><div class="skel skel-line" style="width:60%;height:13px;margin-top:0"></div>
+        <div class="skel skel-line" style="width:40%"></div></div></div>
+      <div class="skel skel-line" style="width:90%"></div>
+    </div>`).join("");
+}
+
+function renderResultsList(list) {
+  const host = $("#resultsList");
+  if (!list.length) {
+    const recents = !doctors.length ? getRecents() : [];
+    host.innerHTML = `
+      <div class="empty-state">
+        <svg><use href="#i-search"/></svg>
+        <h3>${doctors.length ? "No matches for this filter" : "Nothing here yet"}</h3>
+        <p>${doctors.length ? "Try clearing a filter to see more doctors." : "Search a city above, or use \u201cNear me\u201d to see doctors around you."}</p>
+      </div>
+      ${!doctors.length && !recents.length ? `
+        <div class="box subtle" style="margin-top:4px">
+          <h3 class="eyebrow-label" style="padding:0">HOW IT WORKS</h3>
+          <div class="stack" style="margin-top:10px;gap:12px">
+            ${[["i-search", "Search a city", "Or tap \u201cNear me\u201d to use your current location."],
+               ["i-calendar", "Pick a doctor & slot", "See live availability before you commit to a time."],
+               ["i-ticket", "Get your token", "A PDF ticket and calendar entry are ready instantly — no account required."]]
+              .map(([icon, title, desc], i) => `
+              <div class="gap" style="align-items:flex-start">
+                <div class="avatar" style="width:28px;height:28px;font-size:12px;flex:none">${i + 1}</div>
+                <div><strong style="font-size:13.5px">${title}</strong><p class="faint" style="margin-top:2px;line-height:1.4">${desc}</p></div>
+              </div>`).join("")}
+          </div>
+        </div>` : ""}
+      ${recents.length ? `
+        <div style="margin-top:4px">
+          <h3 class="eyebrow-label" style="padding:0 2px">RECENTLY VIEWED</h3>
+          <div class="stack" style="margin-top:8px">
+            ${recents.map((r) => `
+              <button type="button" class="result-card block" style="text-align:left" data-act="resultCard" data-id="${esc(r.id)}">
+                <div class="rc-top"><div style="flex:1;min-width:0"><div class="rc-name">${esc(r.name)}</div><div class="rc-dept">${esc(r.department)}</div></div>
+                  <svg style="width:14px;height:14px;color:var(--ink-faint)"><use href="#i-chevron"/></svg></div>
+              </button>`).join("")}
+          </div>
+        </div>` : ""}`;
+    return;
+  }
+  host.innerHTML = list.map((d) => `
+    <div class="result-card ${d.id === activeDoctorId ? "active" : ""}" data-id="${esc(d.id)}" data-act="resultCard" tabindex="0" role="button" aria-label="View ${esc(d.name)}">
+      <div class="rc-top">
+        ${avatarHtml(d, 44)}
+        <div style="flex:1;min-width:0">
+          <div class="rc-name">${esc(d.name)}</div>
+          <div class="rc-dept">${esc(d.department)} · ${esc(d.experienceYears)} yrs</div>
+        </div>
+        ${favoriteButton(d, 30)}
+      </div>
+      <div class="rc-meta">
+        <span class="badge ${d.isAvailable ? "ok" : "off"}"><span class="dot"></span>${d.isAvailable ? "Available" : "Unavailable"}</span>
+        ${d.clinic ? `<span class="badge off"><svg style="width:10px;height:10px"><use href="#i-calendar"/></svg>Bookable online</span>` : ""}
+      </div>
+      ${d.clinic ? `<div class="rc-clinic"><svg><use href="#i-pin"/></svg><span>${esc(d.clinic.name)} — ${esc(d.clinic.address)}</span></div>` : ""}
+    </div>`).join("");
+}
+
+function anyFilterActive() {
+  return Boolean($("#deptFilter").value) || availOnly || savedOnly || ($("#sortBy") && $("#sortBy").value !== "recommended");
+}
+const reRunFilters = () => {
+  renderResultsList(filteredDoctors());
+  $("#clearFiltersBtn").classList.toggle("hidden", !anyFilterActive());
+};
+</script>
+<script>
+/* ---------- 5. DOCTOR PROFILE POPUP ---------- */
+async function showDoctor(id) {
+  let d = doctors.find((x) => x.id === id);
+  if (!d) {
+    try { d = await api(`/doctors/${id}`); } catch { toast("Couldn't load that doctor's profile.", "error"); return; }
+  }
+  if (!d) return;
+  recordRecentView(d);
+  const schedule = d.schedule.map((s) => `<li>${esc(s.day)} · ${esc(s.start)}–${esc(s.end)}</li>`).join("");
+  const canBook = d.clinic && d.isAvailable;
+  openModal(`
+    <div class="flex" style="align-items:flex-start">
+      <div class="gap">${avatarHtml(d, 56)}
+        <div><h2>${esc(d.name)}</h2>
+          <p class="muted gap" style="margin-top:2px"><svg style="width:13px;height:13px"><use href="#i-award"/></svg>${esc(d.department)} · ${esc(d.experienceYears)} yrs experience</p></div></div>
+      <div class="gap">
+        <button class="icon-btn" type="button" data-act="shareDoctor" data-id="${esc(d.id)}" data-tip="Copy link"><svg><use href="#i-link"/></svg></button>
+        ${favoriteButton(d, 34)}
+      </div>
+    </div>
+    ${d.bio ? `<p style="margin-top:14px;font-size:14px;line-height:1.55">${esc(d.bio)}</p>` : ""}
+    <div style="margin-top:12px">
+      <span class="badge ${d.isAvailable ? "ok" : "off"}"><span class="dot"></span>${d.isAvailable ? "Available now" : "Currently unavailable"}</span>
+    </div>
+    ${schedule ? `<h3 class="eyebrow-label" style="margin-top:16px">WEEKLY SCHEDULE</h3><ul style="margin:6px 0 0;padding-left:0;list-style:none;font-size:14px;color:var(--ink-soft);display:grid;gap:3px">${schedule}</ul>` : ""}
+    ${d.clinic
+      ? `<div class="box subtle" style="margin-top:14px;font-size:13.5px;display:flex;gap:9px"><svg style="width:16px;height:16px;flex:none;margin-top:2px;color:var(--ink-faint)"><use href="#i-building"/></svg>
+          <div><strong>${esc(d.clinic.name)}</strong><br>${esc(d.clinic.address)}${d.clinic.phone ? `<br>${esc(d.clinic.phone)}` : ""}</div></div>`
+      : `<p class="muted" style="margin-top:14px">No clinic registered yet, so online booking isn't available for this doctor.</p>`}
+    <div class="actions"><button type="button" data-act="closeModal">Close</button>
+      ${canBook ? `<button class="primary" data-act="book" data-id="${esc(d.id)}">Book appointment</button>` : ""}</div>`);
+}
+
+/* ---------- 6. BOOKING ---------- */
+async function openBooking(id) {
+  let d = doctors.find((x) => x.id === id);
+  if (!d) {
+    try { d = await api(`/doctors/${id}`); } catch { toast("Couldn't load that doctor's profile.", "error"); return; }
+  }
+  if (!d) return;
+  openModal(`
+    <div class="gap">${avatarHtml(d, 44)}
+      <div><h2 style="font-size:17px">Book with ${esc(d.name)}</h2>
+        <p class="muted">${esc(d.department)}${d.clinic ? " · " + esc(d.clinic.name) : ""}</p></div></div>
+    <form data-form="book" data-id="${esc(id)}" style="margin-top:4px">
+      <label>Date <input type="date" name="date" id="bkDate" min="${today()}" required></label>
+      <p class="muted" id="bkInfo" style="margin-top:4px"></p>
+      <label>Time slot <select name="slotTime" id="bkSlot" required disabled><option value="">Pick a date first</option></select></label>
+      <div class="inline-fields">
+        <label>Your name <input name="patientName" required minlength="2" maxlength="120"></label>
+        <label>Phone <span class="opt">(optional)</span> <input name="patientPhone" type="tel" maxlength="30"></label>
+      </div>
+      <p class="err" id="bkErr"></p>
+      <div class="banner approved" style="margin-top:16px">
+        <svg><use href="#i-info"/></svg>
+        <span>Your token number and a PDF ticket are generated the moment you confirm — no account needed, though signing in keeps every booking in one place.</span>
+      </div>
+      <div class="actions"><button type="button" data-act="closeModal">Cancel</button>
+        <button class="primary" id="bkSubmit">Confirm booking</button></div>
+    </form>`);
+}
+
+// Asks the server which slots are free on the chosen date and how many bookings remain.
+async function loadAvailability(doctorId, date) {
+  const slotBox = $("#bkSlot"), info = $("#bkInfo"), submit = $("#bkSubmit");
+  slotBox.disabled = true; info.textContent = "Checking availability…";
+  try {
+    const a = await api(`/doctors/${doctorId}/availability?date=${date}`);
+    slotBox.innerHTML = a.slots.length
+      ? `<option value="">Choose a slot</option>` + a.slots.map((s) =>
+          `<option value="${esc(s.time)}" ${s.taken ? "disabled" : ""}>${esc(s.time)}${s.taken ? " (taken)" : ""}</option>`).join("")
+      : `<option value="">No slots on this day</option>`;
+    slotBox.disabled = a.isFull || !a.slots.length;
+    submit.disabled = a.isFull;
+    info.textContent = a.isFull ? `⚠ Fully booked (limit ${a.max}/day). Pick another date.`
+      : a.remaining != null ? `${a.remaining} appointment${a.remaining === 1 ? "" : "s"} left on this date` : "";
+  } catch (e) { info.textContent = ""; $("#bkErr").textContent = e.message; }
+}
+</script>
+<script>
+/* ---------- 7. TICKET & PDF ---------- */
+let lastTicket = null;
+function showTicket(a) {
+  lastTicket = a;
+  const row = (k, v) => `<div class="ticket-row"><span>${k}</span><span>${esc(v)}</span></div>`;
+  openModal(`
+    <div class="ticket-head">
+      <div class="gap" style="color:rgba(255,255,255,.85)"><svg style="width:15px;height:15px"><use href="#i-ticket"/></svg><span class="eyebrow-label">APPOINTMENT CONFIRMED</span></div>
+      <div class="token-num">Token #${esc(a.tokenNumber)}</div></div>
+    ${row("Doctor", a.doctorName)}${row("Department", a.department)}${row("Clinic", a.clinicName)}
+    ${row("Address", a.clinicAddress)}${row("Date", a.date)}${row("Time", a.slotTime)}${row("Patient", a.patientName)}
+    <div class="ticket-perf"></div>
+    <div class="ticket-row"><span>Booking ID</span>
+      <span class="gap" style="justify-content:flex-end">${esc(a.id)}
+        <button class="icon-only sm" type="button" data-act="copyBookingId" data-id="${esc(a.id)}" data-tip="Copy"><svg style="width:12px;height:12px"><use href="#i-link"/></svg></button></span></div>
+    <p class="muted" style="margin-top:10px">A PDF copy was downloaded automatically.</p>
+    <div class="actions" style="flex-wrap:wrap">
+      <button type="button" data-act="ics"><svg><use href="#i-calendar"/></svg>Add to calendar</button>
+      <button type="button" data-act="pdf"><svg><use href="#i-download"/></svg>PDF again</button>
+      <button type="button" data-act="printTicket">Print</button>
+      <button class="dark" type="button" data-act="closeModal">Done</button></div>`);
+}
+
+// Builds a minimal .ics file so the appointment can be dropped straight into any
+// calendar app — no server round-trip needed, it's all derivable from the ticket.
+function makeIcs(a) {
+  const [h, m] = (a.slotTime.match(/\d+/g) || [9, 0]).map(Number);
+  const isPm = /pm/i.test(a.slotTime) && h < 12;
+  const start = new Date(`${a.date}T00:00:00`);
+  start.setHours(isPm ? h + 12 : h, m || 0, 0, 0);
+  const end = new Date(start.getTime() + 30 * 60000);
+  const stamp = (d) => d.toISOString().replace(/[-:]/g, "").split(".")[0] + "Z";
+  const ics = [
+    "BEGIN:VCALENDAR", "VERSION:2.0", "PRODID:-//DocSearch//Appointment//EN", "BEGIN:VEVENT",
+    `UID:${a.id}@docsearch`, `DTSTAMP:${stamp(new Date())}`, `DTSTART:${stamp(start)}`, `DTEND:${stamp(end)}`,
+    `SUMMARY:Appointment with ${a.doctorName}`,
+    `DESCRIPTION:Token #${a.tokenNumber} · ${a.department}. Please arrive 10 minutes early.`,
+    `LOCATION:${(a.clinicName || "") + (a.clinicAddress ? " — " + a.clinicAddress : "")}`,
+    "END:VEVENT", "END:VCALENDAR"
+  ].join("\r\n");
+  const blob = new Blob([ics], { type: "text/calendar" });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = url; link.download = `DocSearch-${a.tokenNumber}.ics`; link.click();
+  URL.revokeObjectURL(url);
+}
+
+function makePdf(a) {
+  const { jsPDF } = window.jspdf;
+  const doc = new jsPDF({ unit: "pt", format: [320, 520] });
+  doc.setFillColor(47, 111, 78); doc.rect(0, 0, 320, 70, "F");
+  doc.setTextColor(255, 255, 255); doc.setFontSize(11);
+  doc.text("APPOINTMENT CONFIRMED", 160, 28, { align: "center" });
+  doc.setFontSize(22); doc.text(`Token #${a.tokenNumber}`, 160, 54, { align: "center" });
+  let y = 95;
+  const line = (label, value) => {
+    if (!value) return;
+    doc.setFontSize(9); doc.setTextColor(140, 140, 140); doc.text(label.toUpperCase(), 24, y);
+    doc.setFontSize(12); doc.setTextColor(20, 20, 20);
+    const lines = doc.splitTextToSize(String(value), 272);
+    doc.text(lines, 24, y + 15); y += 15 + lines.length * 14 + 8;
+  };
+  line("Doctor", a.doctorName); line("Department", a.department); line("Clinic", a.clinicName);
+  line("Address", a.clinicAddress); line("Clinic phone", a.clinicPhone); line("Date", a.date);
+  line("Time slot", a.slotTime); line("Patient", a.patientName); line("Patient phone", a.patientPhone);
+  doc.setLineDashPattern([4, 3], 0); doc.setDrawColor(200); doc.line(16, y + 4, 304, y + 4); doc.setLineDashPattern([], 0);
+  y += 28; doc.setFontSize(9); doc.setTextColor(140, 140, 140); doc.text("BOOKING ID", 24, y);
+  doc.setFontSize(10); doc.setTextColor(20, 20, 20); doc.text(String(a.id), 24, y + 14);
+  doc.setFontSize(8); doc.setTextColor(170, 170, 170);
+  doc.text("Please arrive 10 minutes early and bring this ticket.", 160, 500, { align: "center" });
+  doc.save(`DocSearch-ticket-${a.tokenNumber}.pdf`);
+}
+
+function downloadSavedAppointmentPdf(id) {
+  const saved = JSON.parse(localStorage.getItem("ds_patient_appointments") || "[]");
+  let a = saved.find((x) => x.id === id);
+  if (a) { makePdf(a); }
+  else if (lastTicket && lastTicket.id === id) { makePdf(lastTicket); }
+  else { toast("Appointment ticket data not found on this device.", "error"); }
+}
+
+/* ---------- PATIENT BOOKINGS LOOKUP (no account needed) ---------- */
+async function lookupBookings(form) {
+  const q = formData(form).query;
+  const err = $("#lookupErr"), resBox = $("#lookupResults");
+  err.textContent = ""; resBox.innerHTML = `<p class="muted">Searching…</p>`;
+  try {
+    const list = await api(`/appointments/search?phone=${encodeURIComponent(q)}&name=${encodeURIComponent(q)}`);
+    resBox.innerHTML = list.length ? list.map((a) => `
+      <div class="box" style="margin-top:8px;font-size:13px">
+        <strong>Token #${esc(a.tokenNumber)} · ${esc(a.doctorName)} (${esc(a.department)})</strong><br>
+        <span class="muted">${esc(a.clinicName)} — ${esc(a.date)} at ${esc(a.slotTime)}</span><br>
+        <span class="muted">Patient: ${esc(a.patientName)}</span>
+        <div style="margin-top:8px">
+          <button class="primary sm" data-act="downloadSavedPdf" data-id="${esc(a.id)}"><svg><use href="#i-download"/></svg>PDF ticket</button>
+        </div>
+      </div>
+    `).join("") : `<p class="muted">No appointments found matching "${esc(q)}".</p>`;
+  } catch (e) {
+    resBox.innerHTML = ""; err.textContent = e.message;
+  }
+}
+</script>
+<script>
+/* ---------- 8. PATIENT HUB ---------- */
+async function openPatientHub(tab = "login") {
+  const token = localStorage.getItem(PATIENT_TOKEN);
+  if (token) {
+    try {
+      const me = await api("/patient/me", { tokenKey: PATIENT_TOKEN });
+      const appts = await api("/patient/appointments", { tokenKey: PATIENT_TOKEN });
+      openModal(`
+        <div class="flex" style="align-items:flex-start;margin-bottom:14px">
+          <div class="gap">${avatarHtml({ name: me.name }, 44)}
+            <div><h2>${esc(me.name)}</h2>
+              <p class="muted gap" style="margin-top:2px"><svg style="width:12px;height:12px"><use href="#i-mail"/></svg>${esc(me.email)}${me.phone ? ` <svg style="width:12px;height:12px;margin-left:4px"><use href="#i-phone"/></svg>${esc(me.phone)}` : ""}</p></div></div>
+          <button class="icon-btn" data-act="patientLogout" title="Log out" aria-label="Log out"><svg><use href="#i-logout"/></svg></button>
+        </div>
+        <h3 class="eyebrow-label">MY BOOKED APPOINTMENTS (${appts.length})</h3>
+        <div style="max-height:300px;overflow-y:auto;margin-top:8px" class="stack">
+          ${appts.length ? appts.map((a) => `
+            <div class="box" style="font-size:13px">
+              <strong>Token #${esc(a.tokenNumber)} · ${esc(a.doctorName)} (${esc(a.department)})</strong><br>
+              <span class="muted">${esc(a.clinicName)} — ${esc(a.date)} at ${esc(a.slotTime)}</span>
+              <div style="margin-top:8px">
+                <button class="primary sm" data-act="downloadSavedPdf" data-id="${esc(a.id)}"><svg><use href="#i-download"/></svg>PDF Ticket</button>
+              </div>
+            </div>
+          `).join("") : `<p class="muted">No appointments booked yet.</p>`}
+        </div>
+        <h3 class="eyebrow-label" style="margin-top:18px">SAVED DOCTORS (${getFavorites().length})</h3>
+        <div style="max-height:200px;overflow-y:auto;margin-top:8px" class="stack">
+          ${getFavorites().length ? getFavorites().map((f) => `
+            <button type="button" class="result-card block" style="text-align:left" data-act="resultCard" data-id="${esc(f.id)}">
+              <div class="rc-top"><div style="flex:1;min-width:0"><div class="rc-name">${esc(f.name)}</div><div class="rc-dept">${esc(f.department)}</div></div>
+                <svg style="width:14px;height:14px;color:var(--ink-faint)"><use href="#i-chevron"/></svg></div>
+            </button>
+          `).join("") : `<p class="muted">Tap the heart on a doctor's profile to save them here for next time.</p>`}
+        </div>
+        <div class="actions"><button type="button" data-act="closeModal">Close</button></div>
+      `);
+      return;
+    } catch {
+      localStorage.removeItem(PATIENT_TOKEN);
+      syncSession();
+    }
+  }
+
+  openModal(`
+    <div class="tabs">
+      <button class="tab ${tab === "login" ? "on" : ""}" data-act="patientTab" data-tab="login">Sign in</button>
+      <button class="tab ${tab === "register" ? "on" : ""}" data-act="patientTab" data-tab="register">Register</button>
+    </div>
+    ${tab === "login" ? `
+      <h2>Welcome back</h2>
+      <p class="muted" style="margin-top:4px">Sign in to see your bookings across devices.</p>
+      <form data-form="patientLogin">
+        <label>Email <input name="email" type="email" required></label>
+        <label>Password <input name="password" type="password" required></label>
+        <p class="err"></p>
+        <div class="actions"><button type="button" data-act="closeModal">Cancel</button><button class="primary">Sign in</button></div>
+      </form>
+    ` : `
+      <h2>Create your account</h2>
+      <p class="muted" style="margin-top:4px">Keep every booking in one place.</p>
+      <form data-form="patientRegister">
+        <label>Full name <input name="name" required minlength="2" maxlength="120"></label>
+        <label>Email <input name="email" type="email" required></label>
+        <label>Phone <span class="opt">(optional)</span> <input name="phone" type="tel" maxlength="30"></label>
+        <label>Password <span class="opt">(min 6 characters)</span> <input class="pw-field" name="password" type="password" required minlength="6"></label>
+        <div class="pw-meter" aria-hidden="true"><span></span></div>
+        <p class="faint pw-meter-label"></p>
+        <p class="err"></p>
+        <div class="actions"><button type="button" data-act="closeModal">Cancel</button><button class="primary">Register</button></div>
+      </form>
+    `}
+    <p class="muted" style="margin-top:14px;text-align:center">Booked without an account? <button class="link" data-act="patientLookup">Find your appointment</button></p>
+  `);
+}
+
+function openPatientLookup() {
+  openModal(`
+    <h2>Find your appointment</h2>
+    <p class="muted" style="margin-top:4px">Look up a booking made without an account, by phone or name.</p>
+    <form data-form="lookupBookings" style="margin-top:6px">
+      <div class="inline-fields">
+        <input name="query" placeholder="Phone or name" required style="flex:1">
+        <button class="primary" type="submit">Search</button>
+      </div>
+      <p class="err" id="lookupErr"></p>
+    </form>
+    <div id="lookupResults" style="margin-top:6px;max-height:240px;overflow-y:auto"></div>
+    <div class="actions"><button type="button" data-act="closeModal">Close</button></div>
+  `);
+}
+
+/* ---------- 9. DOCTOR HUB (login / register) ---------- */
+function openDoctorHub(tab = "login") {
+  if (localStorage.getItem(DOCTOR_TOKEN)) { openDashboard(); return; }
+  const deptOptions = DEPARTMENTS.map((d) => `<option>${esc(d)}</option>`).join("");
+  openModal(`
+    <div class="tabs">
+      <button class="tab ${tab === "login" ? "on" : ""}" data-act="doctorTab" data-tab="login">Sign in</button>
+      <button class="tab ${tab === "register" ? "on" : ""}" data-act="doctorTab" data-tab="register">Register</button>
+    </div>
+    ${tab === "login" ? `
+      <h2>Doctor sign in</h2>
+      <form data-form="login">
+        <label>Email <input name="email" type="email" required></label>
+        <label>Password <input name="password" type="password" required></label>
+        <p class="err"></p>
+        <div class="actions"><button type="button" data-act="closeModal">Cancel</button><button class="primary">Sign in</button></div>
+      </form>
+    ` : `
+      <h2>Register as a doctor</h2>
+      <p class="muted" style="margin-top:4px">An admin reviews every registration before patients can see you on the map.</p>
+      <form data-form="register">
+        <label>Full name <input name="name" required minlength="2" maxlength="120" placeholder="Dr. Jane Doe"></label>
+        <label>Email <input name="email" type="email" required></label>
+        <label>Password <span class="opt">(min 6 characters)</span> <input class="pw-field" name="password" type="password" required minlength="6"></label>
+        <div class="pw-meter" aria-hidden="true"><span></span></div>
+        <p class="faint pw-meter-label"></p>
+        <label>Department <select name="department">${deptOptions}</select></label>
+        <label>City <input name="city" required placeholder="e.g. Kochi"></label>
+        <div style="margin-top:10px">
+          <span class="faint">Pin your location precisely:</span>
+          <div class="inline-fields" style="margin-top:5px">
+            <input name="exactAddress" id="regExactAddr" placeholder="Street address or landmark">
+            <button type="button" class="sm" data-act="geocodeAddress" data-target="reg">Pin address</button>
+          </div>
+          <button type="button" class="chip" style="margin-top:7px" data-act="useLocation" data-target="reg">
+            <svg style="width:12px;height:12px"><use href="#i-pin"/></svg> Use my current GPS</button>
+          <p class="faint" id="regLocMsg" style="margin-top:4px"></p>
+        </div>
+        <label>Bio <textarea name="bio" rows="2" maxlength="1000" placeholder="Brief professional background…"></textarea></label>
+        <div class="inline-fields">
+          <label>Experience (yrs) <input name="experienceYears" type="number" min="0" max="80" value="5"></label>
+          <label>Max daily appts <input name="maxDailyAppointments" type="number" min="1" max="200" value="20"></label>
+        </div>
+        <label>Profile photo <span class="opt">(optional)</span></label>
+        <div class="gap">
+          <div class="avatar" id="regPicPreview" style="width:44px;height:44px"></div>
+          <input type="file" accept="image/png,image/jpeg,image/webp" id="regPicInput" style="flex:1">
+        </div>
+        <p class="faint" id="regPicMsg" style="margin-top:4px"></p>
+        <h3 style="font-size:13.5px;margin-top:18px;font-weight:650">Clinic <span class="opt">(needed for online booking)</span></h3>
+        <label>Clinic name <input name="clinicName" maxlength="120"></label>
+        <label>Clinic address <input name="clinicAddress" maxlength="500"></label>
+        <label>Clinic phone <input name="clinicPhone" type="tel" maxlength="30"></label>
+        <p class="err"></p>
+        <div class="actions"><button type="button" data-act="closeModal">Cancel</button><button class="primary">Create account</button></div>
+      </form>
+    `}
+  `);
+}
+
+function showAdminLogin(message = "") {
+  openModal(`
+    <h2>Admin sign in</h2>
+    <form data-form="adminLogin">
+      <label>Admin email <input name="email" type="email" required></label>
+      <label>Password <input name="password" type="password" required></label>
+      <p class="err">${esc(message)}</p>
+      <div class="actions"><button type="button" data-act="closeModal">Cancel</button><button class="dark">Sign in</button></div>
+    </form>`);
+}
+
+function openAdminHub() {
+  if (localStorage.getItem(ADMIN_TOKEN)) { openAdmin(); return; }
+  showAdminLogin();
+}
+</script>
+<script>
+/* ---------- 10. DOCTOR DASHBOARD ---------- */
+let me = null; // the logged-in doctor's profile
+
+async function openDashboard() {
+  if (!localStorage.getItem(DOCTOR_TOKEN)) return openDoctorHub("login");
+  try {
+    const [profile, appts] = await Promise.all([
+      api("/me", { tokenKey: DOCTOR_TOKEN }), api("/me/appointments", { tokenKey: DOCTOR_TOKEN })]);
+    me = profile;
+    renderDashboard(appts);
+  } catch (e) {
+    if (e.status === 401) { localStorage.removeItem(DOCTOR_TOKEN); syncSession(); openDoctorHub("login"); }
+    else toast(e.message, "error");
+  }
+}
+
+const scheduleRow = (r = { day: "Mon", start: "09:00", end: "13:00", slotMinutes: 15 }) => `
+  <div class="srow" style="display:grid;grid-template-columns:72px 1fr 1fr 74px auto;gap:6px;margin-top:8px;align-items:center">
+    <select class="s-day">${DAYS.map((d) => `<option ${d === r.day ? "selected" : ""}>${d}</option>`).join("")}</select>
+    <input class="s-start" type="time" value="${esc(r.start)}" required>
+    <input class="s-end" type="time" value="${esc(r.end)}" required>
+    <input class="s-min" type="number" min="5" max="240" step="5" value="${esc(r.slotMinutes)}" title="minutes per patient">
+    <button type="button" class="red icon-only" data-act="removeRow" aria-label="Remove slot"><svg><use href="#i-x"/></svg></button>
+  </div>`;
+const readSchedule = () => $$(".srow").map((row) => ({
+  day: row.querySelector(".s-day").value, start: row.querySelector(".s-start").value,
+  end: row.querySelector(".s-end").value, slotMinutes: Number(row.querySelector(".s-min").value) }));
+
+function renderDashboard(appts) {
+  delete photoOverride.prof; delete locationOverride.prof;
+  const banners = {
+    pending: { icon: "i-clock", text: "Your registration is awaiting admin approval. Patients can't see you on the map yet." },
+    approved: { icon: "i-check", text: "You're approved and visible to patients." },
+    rejected: { icon: "i-alert", text: "Your registration was not approved. Contact the site admin." }
+  };
+  const b = banners[me.status];
+  const list = appts.filter((a) => a.status !== "cancelled");
+  const todayCount = list.filter((a) => a.date === today()).length;
+  const limit = me.maxDailyAppointments;
+  const isFull = limit != null && todayCount >= limit;
+
+  openScreen(`
+    <div class="screen-head">
+      <div class="gap">${avatarHtml(me, 40)}<div><strong style="font-family:var(--font-display);font-size:17px">${esc(me.name)}</strong>
+        <div class="muted" style="margin-top:0">${esc(me.department)} · ${esc(me.city)}</div></div></div>
+      <span class="gap">
+        <button data-act="previewProfile" data-tip="See your listing as patients see it"><svg><use href="#i-user"/></svg>Preview</button>
+        <button data-act="closeScreen">← Map</button>
+        <button class="dark" data-act="logout"><svg><use href="#i-logout"/></svg>Log out</button>
+      </span>
+    </div>
+
+    <h1 class="display" style="font-size:27px;margin-top:22px">Welcome, ${esc(me.name)}</h1>
+    ${b ? `<div class="banner ${esc(me.status)}"><svg><use href="#${b.icon}"/></svg><span>${b.text}</span></div>` : ""}
+
+    <div class="stat-grid">
+      <div class="stat-card"><div class="stat-num">${list.length}</div><div class="stat-label">Total appointments</div></div>
+      <div class="stat-card"><div class="stat-num">${todayCount}${limit != null ? `<span style="font-size:15px;color:var(--ink-faint)">/${limit}</span>` : ""}</div><div class="stat-label">Booked today</div></div>
+      <div class="stat-card"><div class="stat-num">${me.isAvailable ? "🟢" : "🔴"}</div><div class="stat-label">${me.isAvailable ? "Available" : "Unavailable"}</div></div>
+    </div>
+
+    <div class="box flex" style="margin-top:14px">
+      <span class="gap"><svg style="width:16px;height:16px;color:var(--ink-faint)"><use href="#i-stethoscope"/></svg>${me.isAvailable ? "Shown as available to patients" : "Marked unavailable"}</span>
+      <button class="sm" data-act="toggleAvail">${me.isAvailable ? "Mark unavailable" : "Mark available"}</button>
+    </div>
+    <div class="banner ${isFull ? "rejected" : "approved"}" style="margin-top:10px">
+      <svg><use href="#${isFull ? "i-alert" : "i-check"}"/></svg>
+      <span>${limit == null ? `No daily limit set — today: ${todayCount} booked.`
+        : isFull ? `Today's limit reached — ${todayCount}/${limit} booked. New bookings for today are blocked.`
+        : `Today: ${todayCount}/${limit} booked — ${limit - todayCount} slot${limit - todayCount === 1 ? "" : "s"} left.`}</span>
+    </div>
+
+    <h2 class="display" style="font-size:18px;margin-top:28px">My appointments</h2>
+    <div class="tabs" style="margin-top:8px">
+      ${[["all", "All"], ["today", "Today"], ["upcoming", "Upcoming"], ["cancelled", "Cancelled"]].map(([key, label]) =>
+        `<button class="tab ${key === "all" ? "on" : ""}" data-act="apptTab" data-tab="${key}">${label}</button>`).join("")}
+    </div>
+    <div class="stack" id="apptList" style="margin-top:4px"></div>
+
+    <form data-form="profile" style="margin-top:30px">
+      <legend>Profile</legend>
+      <label>Profile photo</label>
+      <div class="gap"><div class="avatar" id="profPicPreview" style="width:48px;height:48px">${me.profilePic ? `<img src="${esc(me.profilePic)}" alt="">` : esc(initials(me.name))}</div>
+        <input type="file" accept="image/png,image/jpeg,image/webp" id="profPicInput" style="flex:1"></div>
+      <p class="faint" id="profPicMsg" style="margin-top:4px"></p>
+      <label>Bio <textarea name="bio" rows="3" maxlength="1000">${esc(me.bio)}</textarea></label>
+      <label>Years of experience <input name="experienceYears" type="number" min="0" max="80" value="${esc(me.experienceYears)}"></label>
+
+      <legend>Location <span class="opt">(used to place you on the map)</span></legend>
+      <p class="muted">Currently set from "${esc(me.city)}".</p>
+      <button type="button" class="chip" data-act="useLocation" data-target="prof">
+        <svg style="width:12px;height:12px"><use href="#i-pin"/></svg> Use my current location</button>
+      <p class="faint" id="profLocMsg" style="margin-top:4px"></p>
+
+      <div class="flex"><legend style="margin-top:0">Clinic <span class="opt">(needed for online booking)</span></legend>
+        ${me.clinic?.address ? `<button type="button" class="link sm" data-act="copyClinicAddress" data-value="${esc(me.clinic.address)}">Copy address</button>` : ""}</div>
+      <label>Clinic name <input name="clinicName" maxlength="120" value="${esc(me.clinic?.name)}"></label>
+      <label>Clinic address <input name="clinicAddress" maxlength="500" value="${esc(me.clinic?.address)}"></label>
+      <label>Clinic phone <input name="clinicPhone" type="tel" maxlength="30" value="${esc(me.clinic?.phone)}"></label>
+
+      <legend>Appointment limit</legend>
+      <p class="muted">Once this many patients are booked for a date, that date closes to new bookings and shows as full. Each patient gets a token number in order of booking. Leave empty for no limit.</p>
+      <input name="maxDailyAppointments" type="number" min="1" max="200" style="max-width:150px;margin-top:8px" value="${esc(me.maxDailyAppointments ?? "")}">
+
+      <div class="flex" style="margin-top:26px"><legend style="margin-top:0">Weekly schedule</legend>
+        <button type="button" class="link sm" data-act="addRow"><svg><use href="#i-plus"/></svg>Add slot</button></div>
+      <p class="faint">Day · from · to · minutes per patient</p>
+      <div id="rows">${me.schedule.map(scheduleRow).join("")}</div>
+
+      <p class="err" id="profMsg"></p>
+      <div class="actions" style="justify-content:flex-start"><button class="primary">Save changes</button></div>
+    </form>`);
+  dashAppts = appts;
+  renderApptList("all");
+  profileDirty = false;
+}
+
+let dashAppts = [];
+function renderApptList(tab) {
+  const host = $("#apptList");
+  if (!host) return;
+  let filtered = dashAppts;
+  if (tab === "today") filtered = dashAppts.filter((a) => a.date === today() && a.status !== "cancelled");
+  else if (tab === "upcoming") filtered = dashAppts.filter((a) => a.date >= today() && a.status !== "cancelled");
+  else if (tab === "cancelled") filtered = dashAppts.filter((a) => a.status === "cancelled");
+  host.innerHTML = filtered.length ? filtered.map((a) => `
+        <div class="box flex"><div><strong>#${esc(a.tokenNumber)} · ${esc(a.patientName)}</strong>
+          <p class="muted">${esc(a.date)} at ${esc(a.slotTime)}${a.patientPhone ? " · " + esc(a.patientPhone) : ""}</p></div>
+          <span class="badge ${a.status === "cancelled" ? "off" : "ok"}">${esc(a.status)}</span></div>`).join("")
+    : `<p class="muted">No appointments in this view.</p>`;
+}
+
+/* ---------- 11. ADMIN ---------- */
+let adminTab = "pending";
+
+let adminList = []; // the current tab's doctors, kept around so the search box can filter client-side
+
+function renderAdminCards(list, tab) {
+  return list.length ? list.map((d) => `
+          <div class="box">
+            <div class="flex" style="align-items:flex-start">
+              <div class="gap">${avatarHtml(d, 44)}
+                <div><strong>${esc(d.name)}</strong><p class="muted">${esc(d.department)} · ${esc(d.city)}</p>
+                  <p class="muted">${esc(d.email)}</p></div></div>
+              ${tab === "pending" ? `<span class="gap">
+                  <button class="red sm" data-act="decide" data-do="reject" data-id="${esc(d.id)}">Reject</button>
+                  <button class="green sm" data-act="decide" data-do="approve" data-id="${esc(d.id)}">Approve</button>
+                </span>` : ""}
+            </div>
+            ${d.bio ? `<p style="font-size:13.5px;margin-top:10px;color:var(--ink-soft)">${esc(d.bio)}</p>` : ""}
+            <p class="muted" style="margin-top:8px">${d.clinic ? esc(d.clinic.name) + " — " + esc(d.clinic.address) : "No clinic added yet"}
+              · Daily limit: ${d.maxDailyAppointments == null ? "unlimited" : esc(d.maxDailyAppointments)}</p>
+          </div>`).join("")
+    : `<div class="empty-state"><svg><use href="#i-shield"/></svg><h3>Nothing here</h3><p>No doctors in this category right now.</p></div>`;
+}
+
+// A tiny, dependency-free CSV writer. Good enough for "export what's on screen
+// right now" — it isn't meant to replace a real reporting pipeline.
+function toCsv(rows, columns) {
+  const escapeCell = (v) => {
+    const s = String(v ?? "");
+    return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
+  };
+  const header = columns.map((c) => escapeCell(c.label)).join(",");
+  const body = rows.map((r) => columns.map((c) => escapeCell(c.get(r))).join(",")).join("\n");
+  return header + "\n" + body;
+}
+function downloadCsv(filename, csv) {
+  const blob = new Blob([csv], { type: "text/csv;charset=utf-8" });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = url; link.download = filename; link.click();
+  URL.revokeObjectURL(url);
+}
+function exportAdminCsv() {
+  const csv = toCsv(adminList, [
+    { label: "Name", get: (d) => d.name }, { label: "Email", get: (d) => d.email },
+    { label: "Department", get: (d) => d.department }, { label: "City", get: (d) => d.city },
+    { label: "Experience (yrs)", get: (d) => d.experienceYears }, { label: "Status", get: (d) => d.status },
+    { label: "Clinic", get: (d) => d.clinic?.name || "" }, { label: "Clinic address", get: (d) => d.clinic?.address || "" },
+    { label: "Daily limit", get: (d) => d.maxDailyAppointments ?? "unlimited" }
+  ]);
+  downloadCsv(`docsearch-${adminTab}-doctors.csv`, csv);
+}
+
+function filterAdminList(query) {
+  const q = query.trim().toLowerCase();
+  const filtered = q ? adminList.filter((d) => d.name.toLowerCase().includes(q) || d.email.toLowerCase().includes(q) || d.department.toLowerCase().includes(q)) : adminList;
+  $("#adminCards").innerHTML = renderAdminCards(filtered, adminTab);
+}
+
+async function openAdmin(tab = adminTab) {
+  adminTab = tab;
+  try {
+    // The three status counts are fetched together so the tab bar can show
+    // "Pending (4)" instead of leaving the admin to click through each tab
+    // just to see how much work is waiting.
+    const statuses = ["pending", "approved", "rejected"];
+    const results = await Promise.all(statuses.map((s) => api(`/admin/doctors?status=${s}`, { tokenKey: ADMIN_TOKEN }).catch(() => [])));
+    const byStatus = Object.fromEntries(statuses.map((s, i) => [s, results[i]]));
+    const counts = Object.fromEntries(statuses.map((s) => [s, byStatus[s].length]));
+    adminList = byStatus[tab];
+
+    openScreen(`
+      <div class="screen-head">
+        <h1 class="display" style="font-size:22px">Admin dashboard</h1>
+        <span class="gap"><button data-act="closeScreen">← Map</button><button class="dark" data-act="adminLogout"><svg><use href="#i-logout"/></svg>Log out</button></span>
+      </div>
+      <div class="tabs" style="margin-top:18px">
+        ${["pending", "approved", "rejected"].map((t) =>
+          `<button class="tab ${t === tab ? "on" : ""}" data-act="adminTab" data-tab="${t}">${t[0].toUpperCase() + t.slice(1)} <span class="faint">(${counts[t]})</span></button>`).join("")}
+      </div>
+      <div class="flex" style="gap:8px">
+        <div class="search-field" style="margin-bottom:14px;flex:1">
+          <svg><use href="#i-search"/></svg>
+          <input id="adminSearch" placeholder="Filter by name, email or department" style="padding-right:12px">
+        </div>
+        <button class="sm" type="button" data-act="exportAdminCsv" data-tip="Download this tab as a spreadsheet">
+          <svg><use href="#i-download"/></svg>Export CSV</button>
+      </div>
+      <div class="stack" id="adminCards">${renderAdminCards(adminList, tab)}</div>`);
+    $("#adminSearch").addEventListener("input", debounce((e) => filterAdminList(e.target.value), 120));
+  } catch (e) {
+    if (e.status === 401) { localStorage.removeItem(ADMIN_TOKEN); closeScreen(); showAdminLogin("Please log in again."); }
+    else toast(e.message, "error");
+  }
+}
+</script>
+<script>
+/* ---------- CONNECTIVITY ---------- */
+// A thin banner beats a page full of silently-failed fetches: people can see at a
+// glance why a search or a booking just stopped working.
+function updateConnBanner() { $("#connBanner").classList.toggle("show", !navigator.onLine); }
+window.addEventListener("online", () => { updateConnBanner(); toast("Back online.", "success"); });
+window.addEventListener("offline", updateConnBanner);
+
+/* ---------- THEME ---------- */
+function applyTheme(mode) {
+  document.documentElement.setAttribute("data-theme", mode);
+  $("#themeIcon").setAttribute("href", mode === "dark" ? "#i-sun" : "#i-moon");
+  localStorage.setItem(THEME_KEY, mode);
+}
+function initTheme() {
+  const saved = localStorage.getItem(THEME_KEY);
+  const system = window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
+  applyTheme(saved || system);
+}
+function toggleTheme() {
+  applyTheme(document.documentElement.getAttribute("data-theme") === "dark" ? "light" : "dark");
+}
+
+/* ---------- SIDEBAR (mobile bottom-sheet) ---------- */
+function toggleSidebar() {
+  if (window.innerWidth > 880) return; // sidebar is always open on desktop
+  $("#sidebar").classList.toggle("open");
+}
+function updateSidebarToggleLabel() {
+  const n = doctors.length;
+  $("#sidebarToggleLabel").textContent = n ? `List (${n})` : "List";
+  $("#sidebarToggle").classList.toggle("hidden", window.innerWidth > 880);
+}
+window.addEventListener("resize", debounce(updateSidebarToggleLabel, 150));
+
+/* ---------- 12. EVENT WIRING ---------- */
+// Buttons carry data-act="name"; this table says what each name does.
+const actions = {
+  closeModal, closeScreen,
+  book: (el) => openBooking(el.dataset.id),
+  pdf: () => lastTicket && makePdf(lastTicket),
+  ics: () => lastTicket && makeIcs(lastTicket),
+  printTicket: () => window.print(),
+  copyClinicAddress: async (el) => {
+    try { await navigator.clipboard.writeText(el.dataset.value); toast("Address copied.", "success"); }
+    catch { toast("Couldn't copy — your browser may be blocking clipboard access.", "error"); }
+  },
+  copyBookingId: async (el) => {
+    try { await navigator.clipboard.writeText(el.dataset.id); toast("Booking ID copied.", "success"); }
+    catch { toast("Couldn't copy — your browser may be blocking clipboard access.", "error"); }
+  },
+  resultCard: (el) => { activeDoctorId = el.dataset.id; highlightCard(el.dataset.id); renderMarkers(); showDoctor(el.dataset.id);
+    const d = doctors.find((x) => x.id === el.dataset.id); if (d) map.flyTo([d.lat, d.lng], Math.max(map.getZoom(), 14)); },
+  patientHub: () => openPatientHub("login"),
+  patientTab: (el) => openPatientHub(el.dataset.tab),
+  patientLookup: () => openPatientLookup(),
+  patientLogout: () => { localStorage.removeItem(PATIENT_TOKEN); localStorage.removeItem("ds_patient_appointments"); closeModal(); syncSession(); toast("Signed out."); },
+  doctorHub: () => openDoctorHub("login"),
+  doctorTab: (el) => openDoctorHub(el.dataset.tab),
+  adminHub: () => openAdminHub(),
+  geocodeAddress: (el) => handleAddressGeocode(el.dataset.target),
+  downloadSavedPdf: (el) => downloadSavedAppointmentPdf(el.dataset.id),
+  logout: () => { localStorage.removeItem(DOCTOR_TOKEN); closeScreen(); syncSession(); toast("Signed out."); },
+  adminLogout: () => { localStorage.removeItem(ADMIN_TOKEN); closeScreen(); syncSession(); toast("Signed out."); },
+  addRow: () => { $("#rows").insertAdjacentHTML("beforeend", scheduleRow()); profileDirty = true; },
+  removeRow: (el) => { el.closest(".srow").remove(); profileDirty = true; },
+  adminTab: (el) => openAdmin(el.dataset.tab),
+  exportAdminCsv: () => exportAdminCsv(),
+  apptTab: (el) => { $$(".tab", el.closest(".tabs")).forEach((t) => t.classList.toggle("on", t === el)); renderApptList(el.dataset.tab); },
+  useLocation: (el) => handleUseLocation(el.dataset.target),
+  toggleSidebar,
+  toggleAvailChip: (el) => { availOnly = !availOnly; el.classList.toggle("on", availOnly); reRunFilters(); },
+  toggleSavedChip: (el) => { savedOnly = !savedOnly; el.classList.toggle("on", savedOnly); reRunFilters(); },
+  clearFilters: () => {
+    availOnly = false; savedOnly = false;
+    $("#deptFilter").value = ""; if ($("#sortBy")) $("#sortBy").value = "recommended";
+    $("#availChip").classList.remove("on"); $("#savedChip").classList.remove("on");
+    reRunFilters();
+  },
+  toggleFavorite: (el) => {
+    const nowOn = toggleFavorite({ id: el.dataset.id, name: el.dataset.name, department: el.dataset.department });
+    $$(`[data-act="toggleFavorite"][data-id="${el.dataset.id}"]`).forEach((btn) => {
+      btn.setAttribute("aria-pressed", nowOn);
+      btn.style.color = nowOn ? "var(--warn)" : "";
+      btn.style.borderColor = nowOn ? "var(--warn-soft)" : "";
+      btn.style.background = nowOn ? "var(--warn-soft)" : "";
+      btn.querySelector("svg").setAttribute("fill", nowOn ? "currentColor" : "none");
+    });
+    if (savedOnly) reRunFilters();
+  },
+  shortcuts: () => openShortcutsHelp(),
+  shareDoctor: async (el) => {
+    const url = `${location.origin}${location.pathname}?doctor=${encodeURIComponent(el.dataset.id)}`;
+    try { await navigator.clipboard.writeText(url); toast("Link copied to clipboard.", "success"); }
+    catch { toast(url); }
+  },
+  // Reuses the same public doctor-profile popup patients see, fed from `me` directly
+  // rather than the public /doctors/:id endpoint — so pending/rejected doctors can
+  // still preview their own listing even before (or without) admin approval.
+  previewProfile: () => {
+    const existed = doctors.some((d) => d.id === me.id);
+    if (!existed) doctors.push(me);
+    showDoctor(me.id);
+    if (!existed) doctors = doctors.filter((d) => d.id !== me.id);
+  },
+  toggleAvail: async () => {
+    try { me = await api("/me", { method: "PATCH", body: { isAvailable: !me.isAvailable }, tokenKey: DOCTOR_TOKEN }); openDashboard(); toast("Availability updated.", "success"); }
+    catch (e) { toast(e.message, "error"); }
+  },
+  decide: async (el) => {
+    try { await api(`/admin/doctors/${el.dataset.id}/${el.dataset.do}`, { method: "PATCH", tokenKey: ADMIN_TOKEN }); openAdmin();
+      toast(el.dataset.do === "approve" ? "Doctor approved." : "Doctor rejected.", "success"); }
+    catch (e) { toast(e.message, "error"); }
+  }
+};
+
+document.addEventListener("click", (e) => {
+  if (e.target.id === "modal") return closeModal(); // click on the dark backdrop
+  if (e.target.closest("#sidebarHead") && !e.target.closest("button, input, select, a")) return toggleSidebar();
+  const el = e.target.closest("[data-act]");
+  if (el && actions[el.dataset.act]) actions[el.dataset.act](el);
+});
+$("#themeToggle").addEventListener("click", (e) => { e.stopPropagation(); toggleTheme(); });
+
+// Native <button>/<a> elements activate on Enter/Space automatically; a plain
+// <div role="button"> (the result cards) does not, so that has to be wired up
+// by hand for keyboard users.
+document.addEventListener("keydown", (e) => {
+  if ((e.key === "Enter" || e.key === " ") && e.target.matches('[role="button"][tabindex]')) {
+    e.preventDefault(); e.target.click();
+  }
+});
+
+document.addEventListener("keydown", (e) => {
+  const typing = document.activeElement.tagName === "INPUT" || document.activeElement.tagName === "TEXTAREA" || document.activeElement.tagName === "SELECT";
+  if (e.key === "Escape") { if (!$("#modal").classList.contains("hidden")) closeModal(); }
+  if (e.key === "/" && !typing) { e.preventDefault(); $("#cityInput").focus(); }
+  if (e.key === "?" && !typing) { e.preventDefault(); openShortcutsHelp(); }
+  if (e.key.toLowerCase() === "d" && !typing && !e.metaKey && !e.ctrlKey) { e.preventDefault(); toggleTheme(); }
+});
+
+function openShortcutsHelp() {
+  const rows = [
+    ["/", "Focus the city search"], ["Esc", "Close the open dialog"],
+    ["d", "Toggle dark mode"], ["Tab / Shift+Tab", "Move through a dialog's fields"], ["?", "Show this list"]
+  ];
+  openModal(`
+    <h2>Keyboard shortcuts</h2>
+    <div class="stack" style="margin-top:12px">
+      ${rows.map(([key, desc]) => `
+        <div class="flex"><span class="muted">${esc(desc)}</span>
+          <kbd style="font:600 12px var(--font-body);background:var(--surface-2);border:1px solid var(--line);border-radius:6px;padding:3px 8px">${esc(key)}</kbd></div>`).join("")}
+    </div>
+    <div class="actions"><button class="primary" type="button" data-act="closeModal">Got it</button></div>`);
+}
+
+// A quick, dependency-free heuristic: length plus variety of character classes.
+// It's only meant to nudge people away from very weak passwords, not to replace
+// server-side validation.
+function passwordStrength(pw) {
+  if (!pw) return { score: 0, label: "" };
+  let score = Math.min(pw.length / 14, 1) * 2;
+  if (/[a-z]/.test(pw) && /[A-Z]/.test(pw)) score += 0.6;
+  if (/\d/.test(pw)) score += 0.5;
+  if (/[^a-zA-Z0-9]/.test(pw)) score += 0.7;
+  score = Math.min(score, 4);
+  const labels = ["Too short", "Weak", "Okay", "Good", "Strong"];
+  const colors = ["var(--danger)", "var(--danger)", "var(--warn)", "var(--accent)", "var(--accent)"];
+  const idx = Math.max(0, Math.min(4, Math.round(score)));
+  return { score, pct: Math.max(8, (idx / 4) * 100), label: pw.length < 6 ? "Too short — needs 6+ characters" : labels[idx], color: colors[idx] };
+}
+
+document.addEventListener("input", (e) => {
+  if (!e.target.classList.contains("pw-field")) return;
+  const wrap = e.target.closest("form");
+  const meter = wrap.querySelector(".pw-meter span");
+  const label = wrap.querySelector(".pw-meter-label");
+  const { pct, label: text, color } = passwordStrength(e.target.value);
+  meter.style.width = pct + "%";
+  meter.style.background = color || "var(--surface-3)";
+  label.textContent = e.target.value ? text : "";
+});
+
+document.addEventListener("input", (e) => {
+  if (e.target.closest('form[data-form="profile"]')) profileDirty = true;
+});
+
+document.addEventListener("change", (e) => {
+  if (e.target.closest('form[data-form="profile"]')) profileDirty = true;
+  if (e.target.id === "bkDate") {
+    const form = e.target.closest("form");
+    if (e.target.value) loadAvailability(form.dataset.id, e.target.value);
+    return;
+  }
+  if (e.target.id === "regPicInput") return handlePhotoPick("reg", e.target.files[0]);
+  if (e.target.id === "profPicInput") return handlePhotoPick("prof", e.target.files[0]);
+  if (e.target.id === "deptFilter" || e.target.id === "sortBy") return reRunFilters();
+});
+
+// Every <form data-form="name"> is handled here.
+const forms = {
+  async search(form) {
+    const msg = $("#searchMsg"), btn = $("#searchBtn");
+    msg.textContent = ""; btn.disabled = true; btn.textContent = "…";
+    try {
+      await searchCity(formData(form).city);
+    } catch (e) { msg.textContent = e.message; }
+    btn.disabled = false; btn.textContent = "Search";
+  },
+
+  async book(form) {
+    const err = $("#bkErr"), btn = $("#bkSubmit");
+    err.textContent = "";
+    if (!form.elements.slotTime.value) { err.textContent = "Please pick a date and a time slot."; return; }
+    btn.disabled = true;
+    try {
+      const tokenKey = localStorage.getItem(PATIENT_TOKEN) ? PATIENT_TOKEN : undefined;
+      const appt = await api("/appointments", { method: "POST", tokenKey, body: { doctorId: form.dataset.id, ...formData(form) } });
+      const saved = JSON.parse(localStorage.getItem("ds_patient_appointments") || "[]");
+      saved.unshift(appt);
+      localStorage.setItem("ds_patient_appointments", JSON.stringify(saved.slice(0, 50)));
+      showTicket(appt);
+      makePdf(appt); // auto-download the PDF ticket
+    } catch (e) {
+      err.textContent = e.message; btn.disabled = false;
+      loadAvailability(form.dataset.id, form.elements.date.value); // refresh so the screen shows the real situation
+    }
+  },
+
+  async lookupBookings(form) { lookupBookings(form); },
+
+  async patientLogin(form) {
+    const err = form.querySelector(".err"); err.textContent = "";
+    try {
+      const { token } = await api("/patient/login", { method: "POST", body: formData(form) });
+      localStorage.setItem(PATIENT_TOKEN, token);
+      syncSession();
+      openPatientHub("login");
+      toast("Welcome back!", "success");
+    } catch (e) { err.textContent = e.message; }
+  },
+
+  async patientRegister(form) {
+    const err = form.querySelector(".err"); err.textContent = "";
+    try {
+      const { token } = await api("/patient/register", { method: "POST", body: formData(form) });
+      localStorage.setItem(PATIENT_TOKEN, token);
+      syncSession();
+      openPatientHub("login");
+      toast("Account created.", "success");
+    } catch (e) { err.textContent = e.message; }
+  },
+
+  async login(form) {
+    try {
+      const { token } = await api("/auth/login", { method: "POST", body: formData(form) });
+      localStorage.setItem(DOCTOR_TOKEN, token);
+      syncSession();
+      closeModal(); openDashboard();
+    } catch (e) { form.querySelector(".err").textContent = e.message; }
+  },
+
+  async register(form) {
+    const err = form.querySelector(".err"); err.textContent = "";
+    try {
+      const data = formData(form);
+      const { lat, lng } = locationOverride.reg || (await geocode(data.city));
+      const { token } = await api("/auth/register", {
+        method: "POST", body: { ...data, lat, lng, profilePic: photoOverride.reg || undefined }
+      });
+      localStorage.setItem(DOCTOR_TOKEN, token);
+      syncSession();
+      closeModal(); openDashboard();
+    } catch (e) { err.textContent = e.message; }
+  },
+
+  async profile(form) {
+    const msg = $("#profMsg"); msg.className = "err"; msg.textContent = "";
+    try {
+      const body = { ...formData(form), schedule: readSchedule() };
+      if (photoOverride.prof) body.profilePic = photoOverride.prof;
+      if (locationOverride.prof) { body.lat = locationOverride.prof.lat; body.lng = locationOverride.prof.lng; }
+      me = await api("/me", { method: "PATCH", tokenKey: DOCTOR_TOKEN, body });
+      delete photoOverride.prof; delete locationOverride.prof;
+      profileDirty = false;
+      msg.className = "ok-text"; msg.textContent = "Saved!";
+      toast("Profile saved.", "success");
+    } catch (e) { msg.textContent = e.message; }
+  },
+
+  async adminLogin(form) {
+    try {
+      const { token } = await api("/admin/login", { method: "POST", body: formData(form) });
+      localStorage.setItem(ADMIN_TOKEN, token);
+      syncSession();
+      closeModal(); openAdmin("pending");
+    } catch (e) { form.querySelector(".err").textContent = e.message; }
+  }
+};
+
+document.addEventListener("submit", (e) => {
+  const handler = forms[e.target.dataset.form];
+  if (handler) { e.preventDefault(); handler(e.target); }
+});
+
+// The native 'invalid' event doesn't bubble, so it has to be caught in the
+// capture phase; a quick shake on the offending field is a clearer signal
+// than the browser's default callout bubble, especially inside a scrolling modal.
+document.addEventListener("invalid", (e) => {
+  const el = e.target;
+  el.classList.remove("shake"); void el.offsetWidth; el.classList.add("shake");
+  el.addEventListener("animationend", () => el.classList.remove("shake"), { once: true });
+}, true);
+
+/* ---------- 13. INIT ---------- */
+initTheme();
+syncSession();
+updateSidebarToggleLabel();
+updateConnBanner();
+
+// A shared "Copy link" from a doctor's profile points back here with ?doctor=<id>;
+// open that profile straight away so the link is actually useful to receive.
+(async function openSharedDoctorIfLinked() {
+  const id = new URLSearchParams(location.search).get("doctor");
+  if (!id) return;
+  try {
+    const d = await api(`/doctors/${id}`);
+    map.setView([d.lat, d.lng], 14);
+    activeDoctorId = d.id;
+    showDoctor(d.id);
+  } catch { /* stale or invalid link — fail quietly, the map still loads normally */ }
+})();
+</script>
+</body>
+</html>

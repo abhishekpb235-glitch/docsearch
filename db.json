@@ -1,0 +1,254 @@
+{
+  "doctors": [
+    {
+      "id": "doc_demo1",
+      "name": "Dr. Anjali Menon",
+      "email": null,
+      "passwordHash": null,
+      "department": "General Physician",
+      "bio": "Demo doctor.",
+      "experienceYears": 8,
+      "isAvailable": true,
+      "status": "approved",
+      "maxDailyAppointments": 10,
+      "city": "Kochi",
+      "lat": 9.9312,
+      "lng": 76.2673,
+      "profilePic": null,
+      "clinic": {
+        "name": "Kochi Family Clinic",
+        "address": "MG Road, Kochi",
+        "phone": "+91 90000 00000"
+      },
+      "schedule": [
+        {
+          "day": "Mon",
+          "start": "09:00",
+          "end": "13:00",
+          "slotMinutes": 15
+        },
+        {
+          "day": "Wed",
+          "start": "09:00",
+          "end": "13:00",
+          "slotMinutes": 15
+        }
+      ]
+    },
+    {
+      "id": "doc_demo2",
+      "name": "Dr. Rahul Nair",
+      "email": null,
+      "passwordHash": null,
+      "department": "Cardiologist",
+      "bio": "Demo doctor.",
+      "experienceYears": 8,
+      "isAvailable": true,
+      "status": "approved",
+      "maxDailyAppointments": 10,
+      "city": "Kochi",
+      "lat": 9.9816,
+      "lng": 76.2999,
+      "profilePic": null,
+      "clinic": {
+        "name": "Heartcare Kochi",
+        "address": "Edappally, Kochi",
+        "phone": "+91 90000 00000"
+      },
+      "schedule": [
+        {
+          "day": "Tue",
+          "start": "10:00",
+          "end": "14:00",
+          "slotMinutes": 20
+        },
+        {
+          "day": "Thu",
+          "start": "10:00",
+          "end": "14:00",
+          "slotMinutes": 20
+        }
+      ]
+    },
+    {
+      "id": "doc_demo3",
+      "name": "Dr. Vivek Iyer",
+      "email": null,
+      "passwordHash": null,
+      "department": "Orthopedic",
+      "bio": "Demo doctor.",
+      "experienceYears": 8,
+      "isAvailable": true,
+      "status": "approved",
+      "maxDailyAppointments": 10,
+      "city": "Bengaluru",
+      "lat": 12.9716,
+      "lng": 77.5946,
+      "profilePic": null,
+      "clinic": {
+        "name": "Bengaluru Ortho Center",
+        "address": "Indiranagar, Bengaluru",
+        "phone": "+91 90000 00000"
+      },
+      "schedule": [
+        {
+          "day": "Mon",
+          "start": "11:00",
+          "end": "15:00",
+          "slotMinutes": 20
+        },
+        {
+          "day": "Fri",
+          "start": "11:00",
+          "end": "15:00",
+          "slotMinutes": 20
+        }
+      ]
+    },
+    {
+      "id": "doc_c579bc2dd2",
+      "name": "abhishek PB",
+      "email": "abhi@gmail.com",
+      "passwordHash": "$2a$10$uc0LLYlBvj3qbVLzDxyNQu6UgYTPFhOySpvmGtO/DGvB3F7BJCjou",
+      "department": "General Physician",
+      "bio": "hi",
+      "experienceYears": 5,
+      "isAvailable": true,
+      "status": "approved",
+      "maxDailyAppointments": 20,
+      "city": "chelakkara",
+      "lat": 10.5036,
+      "lng": 76.2011,
+      "profilePic": null,
+      "clinic": {
+        "name": "abhi's",
+        "address": "chelakkara",
+        "phone": "1236547898"
+      },
+      "schedule": [
+        {
+          "day": "Mon",
+          "start": "09:00",
+          "end": "13:00",
+          "slotMinutes": 15
+        },
+        {
+          "day": "Tue",
+          "start": "09:00",
+          "end": "13:00",
+          "slotMinutes": 15
+        },
+        {
+          "day": "Wed",
+          "start": "09:00",
+          "end": "13:00",
+          "slotMinutes": 15
+        },
+        {
+          "day": "Thu",
+          "start": "09:00",
+          "end": "13:00",
+          "slotMinutes": 15
+        },
+        {
+          "day": "Fri",
+          "start": "09:00",
+          "end": "13:00",
+          "slotMinutes": 15
+        },
+        {
+          "day": "Sat",
+          "start": "09:00",
+          "end": "13:00",
+          "slotMinutes": 15
+        },
+        {
+          "day": "Mon",
+          "start": "09:00",
+          "end": "13:00",
+          "slotMinutes": 15
+        }
+      ]
+    },
+    {
+      "id": "doc_9c33257388",
+      "name": "shibu",
+      "email": "shibu@gmail.com",
+      "passwordHash": "$2a$10$AAQZhMTxS.b6W8ojFe/LVu0QRqQBf8P3FVILxJi3L0dsUGj0VvhdG",
+      "department": "General Physician",
+      "bio": "",
+      "experienceYears": 5,
+      "isAvailable": true,
+      "status": "approved",
+      "maxDailyAppointments": 20,
+      "city": "Thrissur",
+      "lat": 10.5036,
+      "lng": 76.2011,
+      "profilePic": null,
+      "clinic": null,
+      "schedule": []
+    }
+  ],
+  "appointments": [
+    {
+      "id": "apt_ea1184d055",
+      "doctorId": "doc_c579bc2dd2",
+      "doctorName": "abhishek PB",
+      "department": "General Physician",
+      "clinicName": "abhi's",
+      "clinicAddress": "chelakkara",
+      "clinicPhone": "1236547898",
+      "patientName": "ahi",
+      "patientPhone": "1425367485",
+      "date": "2026-10-12",
+      "slotTime": "09:15",
+      "tokenNumber": 1,
+      "status": "booked",
+      "createdAt": "2026-10-10T09:23:31.029Z"
+    },
+    {
+      "id": "apt_dff243033c",
+      "doctorId": "doc_c579bc2dd2",
+      "doctorName": "abhishek PB",
+      "department": "General Physician",
+      "clinicName": "abhi's",
+      "clinicAddress": "chelakkara",
+      "clinicPhone": "1236547898",
+      "patientName": "mn",
+      "patientPhone": "",
+      "date": "2026-10-16",
+      "slotTime": "09:30",
+      "tokenNumber": 1,
+      "status": "booked",
+      "createdAt": "2026-10-10T09:37:08.284Z"
+    },
+    {
+      "id": "apt_ad1b935556",
+      "doctorId": "doc_demo1",
+      "doctorName": "Dr. Anjali Menon",
+      "department": "General Physician",
+      "clinicName": "Kochi Family Clinic",
+      "clinicAddress": "MG Road, Kochi",
+      "clinicPhone": "+91 90000 00000",
+      "patientId": "pt_5f77a2edf6",
+      "patientEmail": "abhishek@gmail.com",
+      "patientName": "aa",
+      "patientPhone": "1234567890",
+      "date": "2026-10-12",
+      "slotTime": "09:15",
+      "tokenNumber": 1,
+      "status": "booked",
+      "createdAt": "2026-10-10T11:07:32.404Z"
+    }
+  ],
+  "patients": [
+    {
+      "id": "pt_5f77a2edf6",
+      "name": "abhi",
+      "email": "abhishek@gmail.com",
+      "phone": "1234567890",
+      "passwordHash": "$2a$10$3dypTDcrDTemEjXY62AouujV9kGprS5zi/3br9.aGPS7A.XPvld6m",
+      "createdAt": "2026-10-10T10:58:07.063Z"
+    }
+  ]
+}
