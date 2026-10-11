@@ -987,15 +987,18 @@ const map = L.map("map", {
 }).setView([9.9312, 76.2673], 12);
 L.control.zoom({ position: "bottomright" }).addTo(map);
 
-const tileLayer = L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png", {
-  attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
-  maxZoom: 19,
-  minZoom: 3,
-  detectRetina: true,   // serves @2x tiles on high-DPI phone screens instead of upscaling blurry ones
-  crossOrigin: true,    // lets a canvas-based future export (e.g. "screenshot this map") read tile pixels
-  updateWhenIdle: !L.Browser.mobile, // on mobile, keep loading tiles while panning instead of waiting for the gesture to end — it's what makes panning *feel* continuous rather than blanking out mid-drag
-  keepBuffer: 3
-}).addTo(map);
+
+const tileLayer = L.tileLayer(
+  "https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png",
+  {
+    attribution:
+      '&copy; OpenStreetMap contributors &copy; CARTO',
+    subdomains: "abcd",
+    maxZoom: 20,
+    minZoom: 3
+  }
+).addTo(map);
+
 
 // Tile loads fail silently by default, which just looks like a blank grey map —
 // surface it once so a flaky connection doesn't read as "the app is broken".
