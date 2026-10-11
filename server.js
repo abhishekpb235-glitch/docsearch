@@ -17,7 +17,7 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const PORT = process.env.PORT || 3000;
 const IS_PROD = process.env.NODE_ENV === "production";
 const JWT_SECRET = process.env.JWT_SECRET || "dev-only-secret";
-const ADMIN_USERNAME = process.env.ADMIN_USERNAME || process.env.ADMIN_EMAIL || "admin";
+const ADMIN_USERNAME = process.env.ADMIN_USERNAME || "admin"; // the old ADMIN_EMAIL variable is ignored on purpose
 // Set AUTO_APPROVE=true to skip admin review (not recommended: nobody checks who registers).
 const AUTO_APPROVE = process.env.AUTO_APPROVE === "true";
 const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || "admin123";
@@ -452,4 +452,7 @@ app.use((err, req, res, next) => {
   res.status(500).json({ error: "Something went wrong. Please try again." });
 });
 
-app.listen(PORT, () => console.log(`DocSearch running at http://localhost:${PORT}`));
+app.listen(PORT, () => {
+  console.log(`DocSearch running at http://localhost:${PORT}`);
+  console.log(`Admin login -> username: "${ADMIN_USERNAME}", password: ${process.env.ADMIN_PASSWORD ? "(set by the ADMIN_PASSWORD environment variable)" : "admin123"}`);
+});
