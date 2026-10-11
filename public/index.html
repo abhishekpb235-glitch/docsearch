@@ -495,6 +495,85 @@ input:invalid, select:invalid { box-shadow: none; } /* don't let the browser's o
   .ticket-head::after { display: none; }
   .ticket-row span:first-child { color: #444; }
 }
+
+/* ==========================================================================
+   MOBILE SCROLL FIX + POLISH  (appended; overrides earlier rules)
+   Root causes fixed:
+   1. 100vh/78vh/92vh include the browser URL bar on phones, so sheets and
+      dialogs were taller than the visible screen and their bottoms (buttons,
+      last results) could not be reached. -> dvh units with vh fallback.
+   2. body{overflow:hidden} + no overscroll containment made scrolling inside
+      the sheet/dialogs "chain" to the page or the map. -> overscroll-behavior.
+   3. The collapsed sheet could not be dragged, and the floating List button
+      was permanently display:none. -> drag gesture + visible toggle.
+   4. Schedule rows (5-column grid) overflowed the dashboard on narrow screens.
+   ========================================================================== */
+:root { --sheet-peek: 172px; --kb: 0px; }
+html, body { height: 100%; height: 100dvh; overscroll-behavior: none; }
+#sidebarBody, .card, .screen, #adminCards, #lookupResults { overscroll-behavior: contain; -webkit-overflow-scrolling: touch; }
+#sidebarBody { min-height: 0; touch-action: pan-y; scroll-behavior: smooth; }
+.screen { height: 100%; height: 100dvh; touch-action: pan-y; padding-bottom: env(safe-area-inset-bottom); }
+.card { max-height: 92vh; max-height: 92dvh; }
+.overlay { overflow: hidden; }
+#sidebarHead { transition: box-shadow .2s var(--ease-out); }
+#sidebarHead.elevated { box-shadow: 0 6px 14px -10px rgba(18,31,23,.45); position: relative; z-index: 2; }
+
+/* floating "back to top" button inside the results list */
+#toTopBtn { position: absolute; right: 16px; bottom: 74px; z-index: 5; width: 40px; height: 40px; padding: 0;
+  border-radius: 50%; box-shadow: var(--shadow-md); opacity: 0; transform: translateY(10px); pointer-events: none;
+  transition: opacity .2s var(--ease-out), transform .2s var(--ease-out); background: var(--accent); color: var(--accent-ink); border-color: var(--accent); }
+#toTopBtn.show { opacity: 1; transform: none; pointer-events: auto; }
+#toTopBtn svg { width: 18px; height: 18px; transform: rotate(-90deg); }
+
+@media (max-width: 880px) {
+  #app { height: 100dvh; }
+  #sidebar { height: 78vh; height: min(82dvh, calc(100dvh - 64px));
+    padding-bottom: env(safe-area-inset-bottom);
+    transform: translateY(calc(100% - var(--sheet-peek) - env(safe-area-inset-bottom)));
+    will-change: transform; }
+  #sidebar.open { transform: translateY(0); }
+  #sidebar.dragging { transition: none; }
+  #sidebarHead { touch-action: none; user-select: none; -webkit-user-select: none; }
+  #sidebarHead input, #sidebarHead select { user-select: text; -webkit-user-select: text; }
+
+  /* account buttons move to the top-right so they never collide with the sheet */
+  #accountNav { top: calc(12px + env(safe-area-inset-top)); bottom: auto; right: 12px; flex-direction: row; align-items: center; }
+  #accountNav .nav-pill { min-width: 42px; min-height: 42px; justify-content: center; }
+
+  #sidebarToggle { display: inline-flex; position: fixed; z-index: 460; left: 50%; transform: translateX(-50%);
+    bottom: calc(var(--sheet-peek) + 14px + env(safe-area-inset-bottom)); }
+  body.sheet-open #sidebarToggle { bottom: auto; top: calc(12px + env(safe-area-inset-top)); left: 12px; transform: none; }
+
+  /* 16px inputs stop iOS Safari from zooming the page on focus */
+  input, select, textarea { font-size: 16px; }
+  /* chips scroll sideways instead of wrapping into a tall block */
+  .chip-row { flex-wrap: nowrap; overflow-x: auto; margin-right: -20px; padding-right: 20px; scrollbar-width: none; -webkit-overflow-scrolling: touch; }
+  .chip-row::-webkit-scrollbar { display: none; }
+  .chip { flex: none; min-height: 36px; }
+  .result-card { padding: 14px; }
+  .tabs { overflow-x: auto; scrollbar-width: none; }
+  .tabs::-webkit-scrollbar { display: none; }
+  .tab { flex: none; padding: 10px 8px; white-space: nowrap; }
+  .screen-head { flex-wrap: wrap; row-gap: 8px; }
+  .stat-card { padding: 10px; }
+  .stat-card .stat-num { font-size: 22px; }
+  #toTopBtn { bottom: calc(24px + env(safe-area-inset-bottom)); }
+}
+
+@media (max-width: 520px) {
+  .card { max-height: 88vh; max-height: 88dvh; padding-bottom: calc(24px + env(safe-area-inset-bottom) + var(--kb)); }
+  .actions { position: sticky; bottom: -1px; background: var(--surface); padding-top: 12px; margin-top: 14px; }
+  .inline-fields { flex-wrap: wrap; }
+  .inline-fields > * { min-width: 140px; }
+  /* schedule editor: day on its own row, times side by side */
+  .srow { grid-template-columns: 1fr 1fr !important; }
+  .srow .s-day { grid-column: 1 / -1; }
+  .ticket-row { flex-direction: column; gap: 2px; }
+  .ticket-row span:last-child { text-align: left; }
+}
+
+@media (hover: none) { .result-card:hover { transform: none; } button:active { transform: scale(.97); } }
+@media (max-height: 480px) and (orientation: landscape) { :root { --sheet-peek: 120px; } .card { max-height: 96dvh; } }
 </style>
 </head>
 <body>
@@ -939,11 +1018,33 @@ function syncSession() {
 const map = L.map("map", { zoomControl: false }).setView([9.9312, 76.2673], 12);
 L.control.zoom({ position: "bottomright" }).addTo(map);
 
-L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png", {
-  attribution:
-    '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
-  referrerPolicy: "strict-origin-when-cross-origin"
-}).addTo(map);
+/* Basemap tiles. OpenStreetMap's servers reject requests that carry no Referer
+   (403 "Access blocked"), which is exactly what happens when the page is opened
+   straight from disk (file://). So: use OSM when served over http(s), use Esri
+   when opened from a file, and fall back automatically if OSM starts failing. */
+const OSM_ATTR = '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors';
+const TILE_SOURCES = [
+  { url: "https://tile.openstreetmap.org/{z}/{x}/{y}.png",
+    opts: { maxZoom: 19, attribution: OSM_ATTR, referrerPolicy: "strict-origin-when-cross-origin" } },
+  { url: "https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/{z}/{y}/{x}",
+    opts: { maxZoom: 19, attribution: 'Tiles &copy; Esri &mdash; Esri, DeLorme, NAVTEQ, USGS, OpenStreetMap contributors' } },
+  { url: "https://tile.openstreetmap.de/{z}/{x}/{y}.png",
+    opts: { maxZoom: 18, attribution: OSM_ATTR } }
+];
+let tileIdx = location.protocol === "file:" ? 1 : 0, tileErrors = 0, baseLayer = null;
+function useTileSource(i) {
+  if (baseLayer) map.removeLayer(baseLayer);
+  tileIdx = i; tileErrors = 0;
+  baseLayer = L.tileLayer(TILE_SOURCES[i].url, TILE_SOURCES[i].opts).addTo(map);
+  baseLayer.on("tileerror", () => {
+    // a few failed tiles are normal; a run of them means the provider is refusing us
+    if (++tileErrors >= 4 && tileIdx < TILE_SOURCES.length - 1) {
+      useTileSource(tileIdx + 1);
+      toast("Switched to a backup map provider.");
+    }
+  });
+}
+useTileSource(tileIdx);
 
 const markers = L.layerGroup().addTo(map);
 let doctors = [];           // the full result set for the current city search
@@ -2004,6 +2105,134 @@ updateConnBanner();
     activeDoctorId = d.id;
     showDoctor(d.id);
   } catch { /* stale or invalid link — fail quietly, the map still loads normally */ }
+})();
+</script>
+<script>
+/* ============================================================================
+   14  MOBILE POLISH  (appended)
+   Bottom-sheet drag gesture, scroll containment, keyboard-aware dialogs,
+   back-to-top, and small keyboard/accessibility improvements.
+   ============================================================================ */
+(() => {
+  "use strict";
+  const mq = window.matchMedia("(max-width: 880px)");
+  const sheet = $("#sidebar"), head = $("#sidebarHead"), list = $("#sidebarBody");
+  const toggleBtn = $("#sidebarToggle"), label = $("#sidebarToggleLabel");
+  const PEEK = () => parseFloat(getComputedStyle(document.documentElement).getPropertyValue("--sheet-peek")) || 172;
+
+  /* ---- sheet state: the class on #sidebar is the single source of truth ---- */
+  const isOpen = () => sheet.classList.contains("open");
+  const setSheet = (open) => sheet.classList.toggle("open", Boolean(open) && mq.matches);
+
+  function refreshChrome() {
+    document.body.classList.toggle("sheet-open", isOpen() && mq.matches);
+    const n = typeof doctors !== "undefined" ? doctors.length : 0;
+    label.textContent = isOpen() ? "Map" : (n ? `List (${n})` : "List");
+    toggleBtn.classList.toggle("hidden", !mq.matches);
+    if (!mq.matches) { sheet.classList.remove("open"); sheet.style.transform = ""; }
+  }
+  // runSearchAt() adds the "open" class itself, so watch the class rather than wrap every caller
+  new MutationObserver(refreshChrome).observe(sheet, { attributes: true, attributeFilter: ["class"] });
+  mq.addEventListener("change", refreshChrome);
+  window.addEventListener("resize", debounce(refreshChrome, 120));
+
+  // Global function declarations are re-resolved at call time, so this replaces the old toggle
+  window.toggleSidebar = () => { if (mq.matches) setSheet(!isOpen()); };
+  actions.toggleSidebar = window.toggleSidebar;
+
+  /* ---- drag the sheet by its header (grip + search area) ---- */
+  let startY = 0, startT = 0, delta = 0, dragging = false, swallowClick = false;
+  const closedOffset = () => Math.max(0, sheet.offsetHeight - PEEK());
+
+  head.addEventListener("touchstart", (e) => {
+    if (!mq.matches || e.target.closest("input, select, textarea, button, .chip")) return;
+    dragging = true; delta = 0; startY = e.touches[0].clientY; startT = Date.now();
+    sheet.classList.add("dragging");
+  }, { passive: true });
+
+  head.addEventListener("touchmove", (e) => {
+    if (!dragging) return;
+    delta = e.touches[0].clientY - startY;
+    const base = isOpen() ? 0 : closedOffset();
+    const y = Math.min(closedOffset(), Math.max(0, base + delta));
+    sheet.style.transform = `translateY(${y}px)`;
+  }, { passive: true });
+
+  function endDrag() {
+    if (!dragging) return;
+    dragging = false;
+    sheet.classList.remove("dragging");
+    sheet.style.transform = "";
+    const speed = Math.abs(delta) / Math.max(1, Date.now() - startT); // px per ms
+    if (Math.abs(delta) > 70 || (speed > 0.5 && Math.abs(delta) > 20)) setSheet(delta < 0);
+    swallowClick = Math.abs(delta) > 8;
+    setTimeout(() => { swallowClick = false; }, 60);
+  }
+  head.addEventListener("touchend", endDrag);
+  head.addEventListener("touchcancel", endDrag);
+  // a drag must not also register as a tap that toggles the sheet back
+  head.addEventListener("click", (e) => { if (swallowClick) { e.stopPropagation(); e.preventDefault(); } }, true);
+
+  /* ---- results list: header shadow + back-to-top ---- */
+  const topBtn = document.createElement("button");
+  topBtn.id = "toTopBtn"; topBtn.type = "button"; topBtn.setAttribute("aria-label", "Back to top of results");
+  topBtn.innerHTML = '<svg><use href="#i-chevron"/></svg>';
+  sheet.appendChild(topBtn);
+  topBtn.addEventListener("click", () => list.scrollTo({ top: 0, behavior: "smooth" }));
+
+  let ticking = false;
+  list.addEventListener("scroll", () => {
+    if (ticking) return;
+    ticking = true;
+    requestAnimationFrame(() => {
+      head.classList.toggle("elevated", list.scrollTop > 4);
+      topBtn.classList.toggle("show", list.scrollTop > 320);
+      ticking = false;
+    });
+  }, { passive: true });
+
+  // New search -> start from the top of the list, and keep the toggle label current
+  const originalRunSearchAt = window.runSearchAt;
+  window.runSearchAt = async function (...args) {
+    const result = await originalRunSearchAt.apply(this, args);
+    list.scrollTop = 0; refreshChrome();
+    return result;
+  };
+
+  /* ---- on-screen keyboard: keep the focused field visible inside dialogs ---- */
+  if (window.visualViewport) {
+    const vv = window.visualViewport;
+    const syncKeyboard = () => {
+      const kb = Math.max(0, window.innerHeight - vv.height - vv.offsetTop);
+      document.documentElement.style.setProperty("--kb", kb > 80 ? kb + "px" : "0px");
+    };
+    vv.addEventListener("resize", syncKeyboard);
+    vv.addEventListener("scroll", syncKeyboard);
+  }
+  document.addEventListener("focusin", (e) => {
+    if (!mq.matches || !e.target.matches("input, select, textarea")) return;
+    if (!e.target.closest(".card, .screen")) return;
+    setTimeout(() => e.target.scrollIntoView({ block: "center", behavior: "smooth" }), 280);
+  });
+
+  /* ---- keyboard & small refinements ---- */
+  document.addEventListener("keydown", (e) => {
+    if (e.key === "Escape" && mq.matches && isOpen() && $("#modal").classList.contains("hidden")
+        && $("#screen").classList.contains("hidden")) setSheet(false);
+  });
+  // Selecting a doctor from the list gets the sheet out of the way of the map
+  list.addEventListener("click", (e) => {
+    if (mq.matches && e.target.closest(".result-card") && !e.target.closest('[data-act="toggleFavorite"]')) {
+      setTimeout(() => setSheet(false), 120);
+    }
+  });
+  // Stop the map swallowing page-level touch scrolling when a dialog is on top
+  new MutationObserver(() => {
+    const covered = !$("#modal").classList.contains("hidden") || !$("#screen").classList.contains("hidden");
+    document.body.style.touchAction = covered ? "none" : "";
+  }).observe(document.body, { subtree: true, attributes: true, attributeFilter: ["class"] });
+
+  refreshChrome();
 })();
 </script>
 </body>
