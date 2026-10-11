@@ -17,7 +17,9 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const PORT = process.env.PORT || 3000;
 const IS_PROD = process.env.NODE_ENV === "production";
 const JWT_SECRET = process.env.JWT_SECRET || "dev-only-secret";
-const ADMIN_EMAIL = process.env.ADMIN_EMAIL || "admin@docsearch.local";
+const ADMIN_USERNAME = process.env.ADMIN_USERNAME || process.env.ADMIN_EMAIL || "admin";
+// Set AUTO_APPROVE=true to skip admin review (not recommended: nobody checks who registers).
+const AUTO_APPROVE = process.env.AUTO_APPROVE === "true";
 const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || "admin123";
 const DB_FILE = process.env.DB_FILE || path.join(__dirname, "db.json");
 
@@ -116,13 +118,15 @@ const app = express();
 app.set("trust proxy", 1); // correct client IP behind Render/Railway/etc.
 
 app.use(helmet({
+  referrerPolicy: { policy: "strict-origin-when-cross-origin" },
   contentSecurityPolicy: {
     useDefaults: false,
     directives: {
       defaultSrc: ["'self'"],
       scriptSrc: ["'self'", "'unsafe-inline'", "https://unpkg.com", "https://cdnjs.cloudflare.com"],
-      styleSrc: ["'self'", "'unsafe-inline'", "https://unpkg.com"],
-      imgSrc: ["'self'", "data:", "https://unpkg.com", "https://tile.openstreetmap.org", "https://*.tile.openstreetmap.org"],
+      styleSrc: ["'self'", "'unsafe-inline'", "https://unpkg.com", "https://fonts.googleapis.com"],
+      fontSrc: ["'self'", "https://fonts.gstatic.com"],
+      imgSrc: ["'self'", "data:", "https://unpkg.com", "https://tile.openstreetmap.org", "https://*.tile.openstreetmap.org", "https://tile.openstreetmap.de", "https://server.arcgisonline.com"],
       connectSrc: ["'self'", "https://nominatim.openstreetmap.org"],
       objectSrc: ["'none'"],
       frameAncestors: ["'self'"]
@@ -336,7 +340,7 @@ app.post("/api/auth/register", async (req, res) => {
     id: newId("doc"), name: b.name.trim(), email: b.email.trim(), passwordHash: await bcrypt.hash(b.password, 10),
     department: b.department, bio: b.bio || "", experienceYears: clamp(Number(b.experienceYears) || 0, 0, 80),
     isAvailable: true,
-    status: "approved", // auto-approved so patients can see registered doctors immediately
+    status: AUTO_APPROVE ? "approved" : "pending", // new doctors wait for admin approval; only approved ones show on the map
     maxDailyAppointments: clamp(Number(b.maxDailyAppointments) || 20, 1, 200),
     city: b.city.trim(), lat, lng, profilePic: b.profilePic && validProfilePic(b.profilePic) ? b.profilePic : null,
     clinic: b.clinicName && b.clinicAddress
@@ -414,10 +418,11 @@ const digest = (s) => crypto.createHash("sha256").update(s).digest();
 const sameSecret = (a, b) => crypto.timingSafeEqual(digest(a), digest(b));
 
 app.post("/api/admin/login", (req, res) => {
-  const { email, password } = req.body || {};
-  if (typeof email !== "string" || typeof password !== "string" ||
-      !sameSecret(email, ADMIN_EMAIL) || !sameSecret(password, ADMIN_PASSWORD)) {
-    return res.status(401).json({ error: "Invalid admin credentials." });
+  const b = req.body || {};
+  const username = typeof b.username === "string" ? b.username : b.email; // accept either field name
+  if (typeof username !== "string" || typeof b.password !== "string" ||
+      !sameSecret(username.trim().toLowerCase(), ADMIN_USERNAME.toLowerCase()) || !sameSecret(b.password, ADMIN_PASSWORD)) {
+    return res.status(401).json({ error: "Invalid admin username or password." });
   }
   res.json({ token: sign({ role: "admin" }) });
 });
@@ -430,6 +435,7 @@ app.get("/api/admin/doctors", auth("admin"), (req, res) => {
 app.patch("/api/admin/doctors/:id/:action", auth("admin"), (req, res) => {
   const doc = db.doctors.find((d) => d.id === req.params.id);
   if (!doc) return res.status(404).json({ error: "Doctor not found." });
+  if (!doc.passwordHash) return res.status(400).json({ error: "Demo doctors can't be changed." });
   if (req.params.action === "approve") doc.status = "approved";
   else if (req.params.action === "reject") doc.status = "rejected";
   else return res.status(400).json({ error: "Action must be approve or reject." });

@@ -1533,7 +1533,7 @@ function showAdminLogin(message = "") {
   openModal(`
     <h2>Admin sign in</h2>
     <form data-form="adminLogin">
-      <label>Admin email <input name="email" type="email" required></label>
+      <label>Username <input name="username" type="text" autocomplete="username" autocapitalize="none" required></label>
       <label>Password <input name="password" type="password" required></label>
       <p class="err">${esc(message)}</p>
       <div class="actions"><button type="button" data-act="closeModal">Cancel</button><button class="dark">Sign in</button></div>
@@ -1690,10 +1690,10 @@ function renderAdminCards(list, tab) {
               <div class="gap">${avatarHtml(d, 44)}
                 <div><strong>${esc(d.name)}</strong><p class="muted">${esc(d.department)} · ${esc(d.city)}</p>
                   <p class="muted">${esc(d.email)}</p></div></div>
-              ${tab === "pending" ? `<span class="gap">
-                  <button class="red sm" data-act="decide" data-do="reject" data-id="${esc(d.id)}">Reject</button>
-                  <button class="green sm" data-act="decide" data-do="approve" data-id="${esc(d.id)}">Approve</button>
-                </span>` : ""}
+              <span class="gap">
+                  ${tab !== "approved" ? `<button class="green sm" data-act="decide" data-do="approve" data-id="${esc(d.id)}">${tab === "rejected" ? "Approve now" : "Approve"}</button>` : ""}
+                  ${tab !== "rejected" ? `<button class="red sm" data-act="decide" data-do="reject" data-id="${esc(d.id)}">${tab === "approved" ? "Revoke" : "Reject"}</button>` : ""}
+                </span>
             </div>
             ${d.bio ? `<p style="font-size:13.5px;margin-top:10px;color:var(--ink-soft)">${esc(d.bio)}</p>` : ""}
             <p class="muted" style="margin-top:8px">${d.clinic ? esc(d.clinic.name) + " — " + esc(d.clinic.address) : "No clinic added yet"}
